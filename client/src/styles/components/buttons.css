@@ -1,0 +1,123 @@
+/* Base Button Styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  text-decoration: none;
+  
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+/* Button Sizes */
+.btn-small {
+  padding: 6px 12px;
+  font-size: var(--text-xs);
+}
+
+.btn-medium {
+  padding: 10px 20px;
+  font-size: var(--text-sm);
+}
+
+.btn-large {
+  padding: 14px 28px;
+  font-size: var(--text-base);
+}
+
+/* Button Variants */
+.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--bg-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--primary-color);
+  color: var(--bg-primary);
+}
+
+.btn-danger {
+  background-color: var(--danger-color);
+  color: var(--text-primary);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #e55656;
+}
+
+.btn-success {
+  background-color: var(--success-color);
+  color: var(--bg-primary);
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: #47b83c;
+}
+
+/* Button States */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-loading {
+  position: relative;
+  color: transparent;
+}
+
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Game Control Buttons */
+.game-controls {
+  position: fixed;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  display: flex;
+  gap: var(--spacing-sm);
+  z-index: var(--z-fixed);
+}
+
+.game-controls .btn {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+}
+
+.game-controls .btn:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-secondary);
+}

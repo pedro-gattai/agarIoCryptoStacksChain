@@ -1,0 +1,274 @@
+/* Coming Soon Modal Styles - Improved UX/UI */
+.coming-soon-modal {
+  position: relative;
+  max-width: 480px;
+  width: 100%;
+  background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+  border: 1px solid rgba(0, 255, 136, 0.15);
+  border-radius: 24px;
+  color: #ffffff;
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+}
+
+/* Close Button */
+.modal-close-x {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: #94a3b8;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal-close-x:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+/* Header Section */
+.modal-header {
+  text-align: center;
+  padding: 40px 30px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal-icon {
+  font-size: 3.5rem;
+  margin-bottom: 16px;
+  animation: gentle-float 4s ease-in-out infinite;
+}
+
+@keyframes gentle-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.modal-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(135deg, #00ff88 0%, #00ccff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Content Section */
+.modal-content {
+  padding: 30px;
+}
+
+.modal-message {
+  font-size: 1rem;
+  color: #cbd5e1;
+  margin-bottom: 32px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* Highlights Section */
+.modal-highlights {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 32px;
+  padding: 20px;
+  background: rgba(0, 255, 136, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.highlight-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.highlight-icon {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+}
+
+/* Social Section */
+.social-section {
+  text-align: center;
+}
+
+.social-title {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.social-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.social-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.social-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.social-btn.twitter:hover {
+  border-color: #1d9bf0;
+  background: rgba(29, 155, 240, 0.1);
+  box-shadow: 0 4px 12px rgba(29, 155, 240, 0.2);
+}
+
+.social-btn.telegram:hover {
+  border-color: #0088cc;
+  background: rgba(0, 136, 204, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 136, 204, 0.2);
+}
+
+.social-icon {
+  font-size: 1.1rem;
+}
+
+.social-label {
+  font-weight: 600;
+}
+
+/* Footer Section */
+.modal-footer {
+  padding: 24px 30px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #00ff88 0%, #00ccff 100%);
+  color: #000;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 140px;
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 255, 136, 0.3);
+}
+
+.primary-btn:active {
+  transform: translateY(0);
+}
+
+/* Responsive Design */
+@media (max-width: 520px) {
+  .coming-soon-modal {
+    margin: 16px;
+    border-radius: 20px;
+  }
+  
+  .modal-header {
+    padding: 32px 24px 16px;
+  }
+  
+  .modal-content {
+    padding: 24px;
+  }
+  
+  .modal-footer {
+    padding: 20px 24px;
+  }
+  
+  .modal-title {
+    font-size: 1.5rem;
+  }
+  
+  .modal-highlights {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+  
+  .highlight-item {
+    flex-direction: row;
+    gap: 12px;
+  }
+  
+  .social-buttons {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .social-btn {
+    width: 100%;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+  
+  .primary-btn {
+    width: 100%;
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 360px) {
+  .modal-header {
+    padding: 24px 16px 12px;
+  }
+  
+  .modal-content {
+    padding: 16px;
+  }
+  
+  .modal-footer {
+    padding: 16px;
+  }
+  
+  .modal-close-x {
+    top: 16px;
+    right: 16px;
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+}

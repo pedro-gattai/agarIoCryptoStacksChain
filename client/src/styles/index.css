@@ -1,0 +1,199 @@
+/* Base Styles */
+@import './base/variables.css';
+
+/* Components */
+@import './components/buttons.css';
+@import './components/modals.css';
+@import './components/coming-soon.css';
+
+/* Legacy styles - to be migrated gradually */
+@import './game.css';
+@import './lobby.css';
+@import './leaderboards.css';
+@import './achievements.css';
+@import './wallet.css';
+@import './landing.css';
+@import './token-ticker.css';
+@import './live-stats.css';
+@import './interactive-roadmap.css';
+
+/* Global Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  
+  overflow-x: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Common Utility Classes */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-md);
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.gap-lg {
+  gap: var(--spacing-lg);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* App Layout */
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-game {
+  overflow: hidden;
+}
+
+.app-lobby {
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+.app-landing {
+  background: var(--bg-primary);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Focus Styles */
+*:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+button:focus {
+  outline-offset: 1px;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-primary);
+  border-top: 2px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Error Messages */
+.error-message {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--danger-color);
+  font-size: var(--text-sm);
+  margin-top: var(--spacing-sm);
+}
+
+/* Success Messages */
+.success-message {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: rgba(81, 207, 102, 0.1);
+  border: 1px solid rgba(81, 207, 102, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--success-color);
+  font-size: var(--text-sm);
+  margin-top: var(--spacing-sm);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 var(--spacing-sm);
+  }
+  
+  .modal-content {
+    margin: var(--spacing-sm);
+    padding: var(--spacing-md);
+  }
+  
+  .game-controls {
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+  }
+  
+  .game-controls .btn {
+    padding: var(--spacing-sm);
+    font-size: var(--text-xs);
+  }
+}

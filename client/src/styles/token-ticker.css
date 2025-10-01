@@ -1,0 +1,127 @@
+/* Token Ticker Styles */
+.token-ticker {
+  background: linear-gradient(135deg, #000000 0%, #1a1a2e 100%);
+  border-top: 1px solid rgba(0, 255, 136, 0.2);
+  border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+  padding: 16px 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.token-ticker::before,
+.token-ticker::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.token-ticker::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 1) 0%, transparent 100%);
+}
+
+.token-ticker::after {
+  right: 0;
+  background: linear-gradient(-90deg, rgba(0, 0, 0, 1) 0%, transparent 100%);
+}
+
+.ticker-container {
+  width: 100%;
+  overflow: hidden;
+}
+
+.ticker-scroll {
+  display: flex;
+  align-items: center;
+  gap: 60px;
+  animation: scroll 60s linear infinite;
+  white-space: nowrap;
+}
+
+@keyframes scroll {
+  0% { transform: translateX(100vw); }
+  100% { transform: translateX(-100%); }
+}
+
+.ticker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ticker-item.primary {
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 204, 255, 0.1) 100%);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: 20px;
+  padding: 8px 16px;
+}
+
+.ticker-label {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ticker-item.primary .ticker-label {
+  color: #00ff88;
+  font-weight: 700;
+}
+
+.ticker-value {
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.ticker-value.live {
+  color: #ff4444;
+  animation: pulse 2s infinite;
+}
+
+.ticker-change {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+}
+
+.ticker-change.positive {
+  color: #00ff88;
+}
+
+.ticker-change.negative {
+  color: #ff4444;
+}
+
+.ticker-change.neutral {
+  color: #94a3b8;
+}
+
+.ticker-separator {
+  color: #4a5568;
+  font-size: 1rem;
+  opacity: 0.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .token-ticker {
+    padding: 12px 0;
+  }
+  
+  .ticker-scroll {
+    gap: 40px;
+  }
+  
+  .ticker-label,
+  .ticker-value {
+    font-size: 0.8rem;
+  }
+}

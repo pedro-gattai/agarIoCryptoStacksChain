@@ -1,0 +1,329 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  walletAddress String   @unique  // Stacks wallet address
+  stacksAddress String?  @unique  // Alternative field name for clarity
+  username      String?
+  createdAt     DateTime @default(now())
+  lastActive    DateTime @updatedAt
+
+  // Basic Stats
+  gamesPlayed   Int @default(0)
+  gamesWon      Int @default(0)
+  totalEarnings Float @default(0)
+  totalLosses   Float @default(0)
+  highestScore  Int @default(0)
+
+  // Advanced Stats
+  eloRating         Int     @default(1000)
+  totalKills        Int     @default(0)
+  totalDeaths       Int     @default(0)
+  avgSurvivalTime   Float   @default(0)
+  longestSurvival   Int     @default(0)
+  biggestCellSize   Int     @default(0)
+  currentStreak     Int     @default(0)
+  longestStreak     Int     @default(0)
+  
+  // Referral System
+  referralCode      String?  @unique
+  referredBy        String?
+  referralEarnings  Float    @default(0)
+
+  // Relations
+  gameParticipations GameParticipation[]
+  transactions       Transaction[]
+  achievements       UserAchievement[]
+  ownedSkins        NFTSkin[]
+  referrals         User[]   @relation("UserReferrals")
+  referrer          User?    @relation("UserReferrals", fields: [referredBy], references: [id])
+  dailyQuests       UserDailyQuest[]
+  powerUpPurchases  PowerUpPurchase[]
+
+  @@map("users")
+}
+
+model Game {
+  id          String     @id @default(cuid())
+  entryFee    Float
+  maxPlayers  Int
+  prizePool   Float      @default(0)
+  gameMode    GameMode   @default(BATTLE_ROYALE)
+  status      GameStatus @default(WAITING)
+  startTime   DateTime?
+  endTime     DateTime?
+  createdAt   DateTime   @default(now())
+
+  // Relations
+  participants GameParticipation[]
+  transactions Transaction[]
+
+  @@map("games")
+}
+
+model GameParticipation {
+  id           String   @id @default(cuid())
+  userId       String
+  gameId       String
+  joinTime     DateTime @default(now())
+  finalScore   Int      @default(0)
+  finalPosition Int?
+  prizeWon     Float    @default(0)
+  isWinner     Boolean  @default(false)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  game Game @relation(fields: [gameId], references: [id])
+
+  @@unique([userId, gameId])
+  @@map("game_participations")
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  signature       String            @unique  // Stacks transaction ID
+  type            TransactionType
+  amount          Float
+  status          TransactionStatus @default(PENDING)
+  userId          String
+  gameId          String?
+  blockchainData  Json?            // Stacks transaction details
+  stacksAddress   String?          // User's Stacks address
+  contractCall    String?          // Contract function called
+  microStxAmount  BigInt?          // Amount in microSTX
+  createdAt       DateTime          @default(now())
+  confirmedAt     DateTime?
+
+  // Relations
+  user User  @relation(fields: [userId], references: [id])
+  game Game? @relation(fields: [gameId], references: [id])
+
+  @@map("transactions")
+}
+
+enum GameMode {
+  BATTLE_ROYALE
+  TIME_ATTACK
+  TEAM_MODE
+}
+
+enum GameStatus {
+  WAITING
+  ACTIVE
+  FINISHED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  ENTRY_FEE
+  PRIZE_PAYOUT
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+// Achievement System
+model Achievement {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  icon        String
+  rarity      AchievementRarity
+  requirement String   // JSON string with requirement criteria
+  reward      Float    // STX reward
+  createdAt   DateTime @default(now())
+
+  // Relations
+  userAchievements UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+  claimed       Boolean  @default(false)
+
+  // Relations
+  user        User        @relation(fields: [userId], references: [id])
+  achievement Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// NFT Skin System
+model NFTSkin {
+  id          String   @id @default(cuid())
+  tokenId     String   @unique
+  name        String
+  description String
+  imageUrl    String
+  animationUrl String?
+  rarity      SkinRarity
+  attributes  String   // JSON string with skin attributes
+  mintAddress String
+  ownerId     String
+  forSale     Boolean  @default(false)
+  price       Float?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  owner User @relation(fields: [ownerId], references: [id])
+
+  @@map("nft_skins")
+}
+
+// Power-ups System
+model PowerUp {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  effect      String   // JSON string with effect data
+  price       Float    // Price in STX
+  duration    Int      // Duration in milliseconds
+  cooldown    Int      // Cooldown in milliseconds
+  icon        String
+  isActive    Boolean  @default(true)
+
+  // Relations
+  purchases PowerUpPurchase[]
+
+  @@map("powerups")
+}
+
+model PowerUpPurchase {
+  id         String   @id @default(cuid())
+  userId     String
+  powerUpId  String
+  gameId     String?
+  purchasedAt DateTime @default(now())
+  usedAt     DateTime?
+  txSignature String
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id])
+  powerUp PowerUp  @relation(fields: [powerUpId], references: [id])
+
+  @@map("powerup_purchases")
+}
+
+// Daily Quests System
+model DailyQuest {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  requirement String   // JSON with quest requirements
+  reward      Float    // STX reward
+  xpReward    Int      @default(0)
+  isActive    Boolean  @default(true)
+  questType   QuestType
+
+  // Relations
+  userQuests UserDailyQuest[]
+
+  @@map("daily_quests")
+}
+
+model UserDailyQuest {
+  id          String   @id @default(cuid())
+  userId      String
+  questId     String
+  progress    Int      @default(0)
+  completed   Boolean  @default(false)
+  claimed     Boolean  @default(false)
+  assignedAt  DateTime @default(now())
+  completedAt DateTime?
+
+  // Relations
+  user  User       @relation(fields: [userId], references: [id])
+  quest DailyQuest @relation(fields: [questId], references: [id])
+
+  @@unique([userId, questId, assignedAt])
+  @@map("user_daily_quests")
+}
+
+// Tournament System
+model Tournament {
+  id           String           @id @default(cuid())
+  name         String
+  description  String?
+  buyIn        Float
+  prizePool    Float            @default(0)
+  maxPlayers   Int
+  currentPlayers Int            @default(0)
+  status       TournamentStatus @default(REGISTRATION)
+  startTime    DateTime
+  endTime      DateTime?
+  bracketData  String?          // JSON with bracket structure
+  winnerId     String?
+  createdAt    DateTime         @default(now())
+
+  // Relations
+  participants TournamentParticipant[]
+
+  @@map("tournaments")
+}
+
+model TournamentParticipant {
+  id           String @id @default(cuid())
+  tournamentId String
+  userId       String
+  seedNumber   Int
+  eliminated   Boolean @default(false)
+  finalRank    Int?
+  payout       Float   @default(0)
+
+  // Relations
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+
+  @@unique([tournamentId, userId])
+  @@map("tournament_participants")
+}
+
+// Enums
+enum AchievementRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum SkinRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+  MYTHIC
+}
+
+enum QuestType {
+  DAILY
+  WEEKLY
+  SEASONAL
+}
+
+enum TournamentStatus {
+  REGISTRATION
+  ACTIVE
+  FINISHED
+  CANCELLED
+}
