@@ -25,3 +25,12 @@ export const COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
   '#DDA0DD', '#98D8C8', '#FFB347', '#87CEEB', '#F0E68C'
 ] as const;
+
+// Demo mode constants - hardcoded for browser compatibility
+export const DEMO_CONSTANTS = {
+  ENABLED: true, // Always true for demo mode
+  BYPASS_BLOCKCHAIN: true, // Always true for demo mode
+  DEMO_ENTRY_FEE: 0,
+  DEMO_WALLET_ADDRESS: 'DEMO_WALLET_ADDRESS',
+  DEMO_PLAYER_NAME: 'DemoPlayer'
+} as const;

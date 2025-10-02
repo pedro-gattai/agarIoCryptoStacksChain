@@ -5,8 +5,9 @@ export const useNavigation = (initialState: AppState = 'landing') => {
   const [appState, setAppState] = useState<AppState>(initialState);
 
   const navigate = useCallback((newState: AppState) => {
+    console.log(`🧭 Navigation: ${appState} → ${newState}`);
     setAppState(newState);
-  }, []);
+  }, [appState]);
 
   const navigationHandlers: NavigationHandlers = useMemo(() => ({
     onPlayNow: () => navigate('lobby'),

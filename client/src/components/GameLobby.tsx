@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletModal } from './WalletModal';
+import { DEMO_CONSTANTS } from 'shared';
 
 interface GameLobbyProps {
   onGameStart: () => void;
@@ -36,10 +37,29 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
     balance 
   } = useWallet();
 
-  // Auto-join global room when connected and wallet is ready
+  // Simplified auto-join for demo mode - always join when connected in demo mode
   useEffect(() => {
-    if (isConnected && connected) {
+    console.log('🔍 GameLobby: Checking join conditions:', {
+      isConnected,
+      connected,
+      DEMO_ENABLED: DEMO_CONSTANTS.ENABLED,
+      inDemoMode: DEMO_CONSTANTS.ENABLED && !connected
+    });
+    
+    // In demo mode, only require socket connection
+    if (DEMO_CONSTANTS.ENABLED && isConnected) {
+      console.log('✅ GameLobby: Demo mode - auto-joining with socket connection');
       joinGlobalRoom();
+    }
+    // In production mode, require both socket and wallet
+    else if (!DEMO_CONSTANTS.ENABLED && isConnected && connected) {
+      console.log('✅ GameLobby: Production mode - joining with wallet connection');
+      joinGlobalRoom();
+    } else {
+      console.log('❌ GameLobby: Conditions NOT met:', {
+        needsDemoMode: !DEMO_CONSTANTS.ENABLED && !connected,
+        needsSocket: !isConnected
+      });
     }
   }, [isConnected, connected]);
 
@@ -62,10 +82,15 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
   }, [currentRoom, onGameStart]);
 
   const joinGlobalRoom = () => {
+    console.log('🎯 GameLobby: joinGlobalRoom() called');
+    
     if (!isConnected) {
       console.error('❌ GameLobby: Cannot join global room - not connected to server');
       return;
     }
+    
+    console.log('🚀 GameLobby: About to call socketJoinGlobalRoom()');
+    
     
     console.log('🌐 GameLobby: Attempting to join global room', {
       wallet: publicKey,
@@ -74,7 +99,9 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
       timestamp: new Date().toISOString()
     });
     
-    socketJoinGlobalRoom(publicKey || undefined);
+    // Use demo wallet in demo mode, otherwise use real wallet
+    const walletToUse = DEMO_CONSTANTS.ENABLED ? DEMO_CONSTANTS.DEMO_WALLET_ADDRESS : (publicKey || undefined);
+    socketJoinGlobalRoom(walletToUse);
   };
 
   const handlePlayNow = () => {
@@ -87,8 +114,8 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
       timestamp: new Date().toISOString()
     });
 
-    // Check wallet connection
-    if (!connected) {
+    // Check wallet connection (skip in demo mode)
+    if (!connected && !DEMO_CONSTANTS.ENABLED) {
       console.log('💳 GameLobby: Wallet not connected, showing modal');
       setShowWalletModal(true);
       return;
@@ -118,7 +145,16 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
         </div>
         
         <div className="header-right">
-          {connected ? (
+          {DEMO_CONSTANTS.ENABLED ? (
+            <div className="wallet-display">
+              <div className="wallet-icon">🎮</div>
+              <div className="wallet-info">
+                <div className="wallet-name">Demo Mode</div>
+                <div className="wallet-balance">∞ Demo STX</div>
+                <div className="wallet-address">DEMO_MODE</div>
+              </div>
+            </div>
+          ) : connected ? (
             <div className="wallet-display">
               <div className="wallet-icon">{wallet?.icon}</div>
               <div className="wallet-info">

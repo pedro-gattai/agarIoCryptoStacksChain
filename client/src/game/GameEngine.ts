@@ -43,6 +43,14 @@ export class GameEngine {
   
   // Event listener cleanup
   private eventCleanupFunctions: Function[] = [];
+  
+  // Visual effects (no game logic impact)
+  private visualEffects: Array<{
+    type: string;
+    position: Vector2;
+    timestamp: number;
+    duration: number;
+  }> = [];
 
   constructor(
     canvas: HTMLCanvasElement, 
@@ -391,12 +399,15 @@ export class GameEngine {
         p => p.isAlive || p.isLocalPlayer
       );
     } else {
-      // Multiplayer: only apply boundary collision for client-side prediction/smoothing
+      // Multiplayer: CLIENT IS PASSIVE - Only server controls game logic
+      // Only apply boundary collision for smooth movement prediction
       CollisionSystem.checkWorldBoundaries(
         this.state.players,
         this.config.worldWidth,
         this.config.worldHeight
       );
+      
+      // CLIENT: Passive mode - debug logging disabled to reduce spam
     }
   }
 
@@ -457,6 +468,9 @@ export class GameEngine {
         player.render(this.ctx, this.camera);
       });
 
+    // Draw visual effects (no game logic impact)
+    this.renderVisualEffects();
+
     // Draw UI elements
     this.drawUI();
   }
@@ -504,6 +518,49 @@ export class GameEngine {
       bottomRight.x - topLeft.x,
       bottomRight.y - topLeft.y
     );
+  }
+
+  private renderVisualEffects(): void {
+    const now = Date.now();
+    
+    // Clean up expired effects
+    this.visualEffects = this.visualEffects.filter(effect => 
+      now - effect.timestamp < effect.duration
+    );
+    
+    // Render active effects
+    this.visualEffects.forEach(effect => {
+      const age = (now - effect.timestamp) / effect.duration; // 0 to 1
+      const alpha = 1 - age; // Fade out over time
+      
+      if (effect.type === 'eating') {
+        this.renderEatingEffect(effect.position, alpha);
+      }
+    });
+  }
+
+  private renderEatingEffect(position: Vector2, alpha: number): void {
+    const screenPos = this.camera.worldToScreen(position);
+    
+    // Only render if visible
+    if (screenPos.x < -50 || screenPos.x > this.canvas.width + 50 ||
+        screenPos.y < -50 || screenPos.y > this.canvas.height + 50) {
+      return;
+    }
+    
+    // Simple circle effect that expands and fades
+    this.ctx.save();
+    this.ctx.globalAlpha = alpha;
+    this.ctx.strokeStyle = '#4ECDC4';
+    this.ctx.lineWidth = 3;
+    
+    const radius = 15 + (1 - alpha) * 20; // Expand from 15 to 35 pixels
+    
+    this.ctx.beginPath();
+    this.ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
+    this.ctx.stroke();
+    
+    this.ctx.restore();
   }
 
   private drawUI(): void {
@@ -556,6 +613,120 @@ export class GameEngine {
     );
   }
 
+  // REMOVED: Immediate updates cause conflicts with server authority
+  // All updates now come exclusively from updateFromServer()
+  updatePlayerImmediate(playerData: {
+    id: string;
+    position?: Vector2;
+    size?: number;
+    score?: number;
+    pelletEaten?: string;
+  }): void {
+    if (!this.isMultiplayer) return;
+
+    console.log(`🚫 DISABLED: Immediate updates disabled to prevent conflicts with server authority`);
+    console.log(`📡 Waiting for official server update for player ${playerData.id}`);
+    
+    // Only visual effects, no state changes
+    if (playerData.pelletEaten) {
+      const player = this.state.players.find(p => p.id === playerData.id);
+      if (player && player.isLocalPlayer) {
+        this.addEatingEffect(player.position);
+      }
+    }
+  }
+
+  private addEatingEffect(position: Vector2): void {
+    // Visual effect for eating (no game logic changes)
+    console.log(`✨ VISUAL: Eating effect at (${Math.floor(position.x)}, ${Math.floor(position.y)})`);
+    
+    // Store effect for rendering (will be enhanced in future updates)
+    // This could include particle effects, screen shake, etc.
+    this.visualEffects = this.visualEffects || [];
+    this.visualEffects.push({
+      type: 'eating',
+      position: { ...position },
+      timestamp: Date.now(),
+      duration: 500 // 500ms effect
+    });
+    
+    // Clean up old effects
+    const now = Date.now();
+    this.visualEffects = this.visualEffects.filter(effect => 
+      now - effect.timestamp < effect.duration
+    );
+  }
+
+  // DISABLED: Immediate pellet removal causes state conflicts
+  removePelletImmediate(pelletId: string): void {
+    if (!this.isMultiplayer) return;
+
+    console.log(`🚫 DISABLED: Immediate pellet removal disabled to prevent conflicts`);
+    console.log(`📡 Pellet ${pelletId} removal will be handled by server update`);
+    
+    // Pellets will be removed via updateFromServer() only
+  }
+
+  // Respawn local player after death
+  respawnLocalPlayer(): void {
+    const localPlayer = this.getLocalPlayer();
+    if (!localPlayer) {
+      console.warn('⚠️ No local player found for respawn');
+      return;
+    }
+
+    // Reset player stats
+    localPlayer.size = 25;
+    localPlayer.mass = (25 * 25) / 100;
+    localPlayer.score = Math.max(0, Math.floor(localPlayer.score * 0.9)); // Keep 90% of score
+    localPlayer.isAlive = true;
+
+    // Reset position to center of world
+    localPlayer.position = {
+      x: this.config.worldWidth / 2,
+      y: this.config.worldHeight / 2
+    };
+
+    // Reset camera to follow player
+    this.camera.setTarget(localPlayer);
+
+    console.log(`🔄 Local player respawned at (${localPlayer.position.x}, ${localPlayer.position.y})`);
+  }
+
+  // Handle death events from other players
+  handleDeathEvent(deathData: {
+    killerId: string;
+    killerName: string;
+    victimId: string;
+    victimName: string;
+    timestamp: number;
+  }): void {
+    console.log(`💀 Death event: ${deathData.killerName} eliminated ${deathData.victimName}`);
+    
+    // Add visual notification or effect (can be enhanced later)
+    this.addDeathNotification(deathData);
+  }
+
+  // Handle local player death
+  handleLocalPlayerDeath(deathData: { killedBy: string; timestamp: number }): void {
+    const localPlayer = this.getLocalPlayer();
+    if (!localPlayer) return;
+
+    // Mark local player as dead
+    localPlayer.isAlive = false;
+    
+    console.log(`💀 LOCAL PLAYER DIED! Killed by: ${deathData.killedBy}`);
+    
+    // The GameCanvas component will detect this and show the game over modal
+  }
+
+  private addDeathNotification(deathData: any): void {
+    // Simple death notification (can be enhanced with proper UI later)
+    console.log(`📢 DEATH NOTIFICATION: ${deathData.killerName} eliminated ${deathData.victimName}`);
+    
+    // Could add floating text, sound effects, etc.
+  }
+
   // Multiplayer synchronization methods
   updateFromServer(serverUpdate: {
     players: Array<{
@@ -576,7 +747,12 @@ export class GameEngine {
   }): void {
     if (!this.isMultiplayer) return;
 
-    console.log(`🔄 GameEngine: Received update with ${serverUpdate.players.length} players`);
+    const pelletsCount = serverUpdate.gameState?.pellets?.length || 0;
+    const humanPlayers = serverUpdate.players.filter(p => !p.id.includes('bot_'));
+    
+    // Server update logging disabled to reduce debug spam
+
+    // Human player debug logging disabled to reduce spam
 
     // Update players from server data
     serverUpdate.players.forEach(serverPlayer => {
@@ -605,21 +781,38 @@ export class GameEngine {
           }
         } else {
           // For local player, only update non-position data
-          console.log(`🎯 LOCAL PLAYER UPDATE: ${existingPlayer.id}, isLocal: ${existingPlayer.isLocalPlayer}`);
-          console.log(`🎯 LOCAL PLAYER DATA: current size ${existingPlayer.size}, server size ${serverPlayer.size}`);
-          
+          const oldScore = existingPlayer.score;
           const oldSize = existingPlayer.size;
+          
+          console.log(`🎯 LOCAL PLAYER UPDATE START:`, {
+            playerId: existingPlayer.id,
+            currentScore: oldScore,
+            serverScore: serverPlayer.score,
+            currentSize: oldSize,
+            serverSize: serverPlayer.size,
+            isLocal: existingPlayer.isLocalPlayer
+          });
+          
           if (serverPlayer.size !== undefined) {
             existingPlayer.size = serverPlayer.size;
             existingPlayer.mass = serverPlayer.size * serverPlayer.size / 100;
-            console.log(`🔄 LOCAL PLAYER GROWTH: ${oldSize} → ${serverPlayer.size} (mass: ${existingPlayer.mass}, score: ${serverPlayer.score})`);
-            
-            // Force visual update
-            console.log(`✅ Applied size to local player: ${existingPlayer.size}`);
+            console.log(`📏 LOCAL PLAYER SIZE: ${oldSize} → ${serverPlayer.size}`);
           }
+          
           if (serverPlayer.score !== undefined) {
             existingPlayer.score = serverPlayer.score;
+            console.log(`💯 LOCAL PLAYER SCORE: ${oldScore} → ${serverPlayer.score}`);
+            
+            if (oldScore !== serverPlayer.score) {
+              console.log(`🔄 SCORE CHANGED! From ${oldScore} to ${serverPlayer.score} (diff: ${serverPlayer.score - oldScore})`);
+            }
           }
+          
+          console.log(`🎯 LOCAL PLAYER UPDATE END:`, {
+            finalScore: existingPlayer.score,
+            finalSize: existingPlayer.size,
+            applied: true
+          });
         }
       } else {
         // Add new player
@@ -653,11 +846,24 @@ export class GameEngine {
     if (serverUpdate.gameState?.pellets) {
       const oldPelletCount = this.state.pellets.length;
       const newPelletCount = serverUpdate.gameState.pellets.length;
+      const oldPelletIds = this.state.pellets.map(p => p.id);
+      const newPelletIds = serverUpdate.gameState.pellets.map(p => p.id);
+      
+      // Pellet update logging disabled to reduce debug spam
       
       if (oldPelletCount !== newPelletCount) {
-        console.log(`🟡 GameEngine: Pellets changed ${oldPelletCount} → ${newPelletCount} (${oldPelletCount - newPelletCount} removed)`);
+        const removed = oldPelletIds.filter(id => !newPelletIds.includes(id));
+        const added = newPelletIds.filter(id => !oldPelletIds.includes(id));
+        
+        console.log(`🟡 PELLET CHANGES:`, {
+          removed: removed.slice(0, 5), // Show first 5
+          added: added.slice(0, 5),     // Show first 5
+          removedCount: removed.length,
+          addedCount: added.length
+        });
       }
       
+      // Replace entire pellet array with server data
       this.state.pellets = [];
       serverUpdate.gameState.pellets.forEach(pelletData => {
         const pellet = new Pellet(
@@ -668,6 +874,8 @@ export class GameEngine {
         pellet.color = pelletData.color;
         this.state.pellets.push(pellet);
       });
+      
+      // Pellet count logging disabled to reduce debug spam
     }
   }
 

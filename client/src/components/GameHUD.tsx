@@ -6,24 +6,14 @@ interface GameHUDProps {
   leaderboard: HUDPlayer[];
   playerCount: number;
   maxPlayers?: number;
-  fps: number;
-  gameTime: number;
 }
 
 export const GameHUD: React.FC<GameHUDProps> = ({
   localPlayer,
   leaderboard,
   playerCount,
-  maxPlayers,
-  fps,
-  gameTime
+  maxPlayers
 }) => {
-  const formatTime = (time: number): string => {
-    const minutes = Math.floor(time / 60000);
-    const seconds = Math.floor((time % 60000) / 1000);
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-
   const formatNumber = (num: number): string => {
     if (num >= 1000000) {
       return (num / 1000000).toFixed(1) + 'M';
@@ -33,6 +23,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     return num.toString();
   };
 
+  // Get top 5 leaderboard for cleaner display
+  const topLeaderboard = leaderboard.slice(0, 5);
+
   return (
     <div className="game-hud">
       {/* Top Left - Player Stats */}
@@ -40,12 +33,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         {localPlayer && (
           <div className="player-stats">
             <div className="stat-item">
-              <span className="label">Score:</span>
+              <span className="label">Score</span>
               <span className="value">{formatNumber(localPlayer.score)}</span>
-            </div>
-            <div className="stat-item">
-              <span className="label">Size:</span>
-              <span className="value">{Math.floor(localPlayer.size || 0)}</span>
             </div>
           </div>
         )}
@@ -55,27 +44,17 @@ export const GameHUD: React.FC<GameHUDProps> = ({
       <div className="hud-section top-right">
         <div className="game-info">
           <div className="info-item">
-            <span className="label">Players:</span>
+            <span className="label">Players</span>
             <span className="value">{playerCount}/{maxPlayers || 100}</span>
-          </div>
-          <div className="info-item">
-            <span className="label">Time:</span>
-            <span className="value">{formatTime(gameTime)}</span>
-          </div>
-          <div className="info-item fps">
-            <span className="label">FPS:</span>
-            <span className={`value ${fps < 30 ? 'low' : fps < 50 ? 'medium' : 'high'}`}>
-              {fps}
-            </span>
           </div>
         </div>
       </div>
 
-      {/* Right Side - Leaderboard */}
+      {/* Right Side - Top 5 Leaderboard */}
       <div className="hud-section leaderboard">
-        <h3>Leaderboard</h3>
+        <h3>Top 5</h3>
         <div className="leaderboard-list">
-          {leaderboard.map((player, index) => (
+          {topLeaderboard.map((player, index) => (
             <div 
               key={player.id || player.name || index} 
               className={`leaderboard-item ${
@@ -86,7 +65,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               <span className="player-name">
                 {localPlayer && (player.id === localPlayer.id || player.name === localPlayer.name)
                   ? 'You' 
-                  : player.name || (player.id ? player.id.substring(0, 8) : `Player ${index + 1}`)
+                  : player.name || (player.id ? player.id.substring(0, 6) : `Player ${index + 1}`)
                 }
               </span>
               <span className="score">{formatNumber(player.score)}</span>
@@ -95,7 +74,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
-      {/* Bottom Center - Controls */}
+      {/* Bottom Center - Essential Controls Only */}
       <div className="hud-section controls">
         <div className="control-hints">
           <div className="hint">
@@ -105,10 +84,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <div className="hint">
             <span className="key">Space</span>
             <span className="action">Split</span>
-          </div>
-          <div className="hint">
-            <span className="key">W</span>
-            <span className="action">Eject Mass</span>
           </div>
         </div>
       </div>

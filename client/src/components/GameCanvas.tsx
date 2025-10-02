@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { GameEngine } from '../game/GameEngine';
 import type { GameConfig } from '../game/GameEngine';
 import { GameHUD } from './GameHUD';
+import { GameOverModal } from './GameOverModal';
 import { useSocket } from '../contexts/SocketContext';
 import { getSocketService } from '../services/socketService';
 import { gameEngineManager } from '../services/GameEngineManager';
 import type { HUDPlayer } from 'shared';
+import '../styles/GameOverModal.css';
 
 interface GameCanvasProps {
   className?: string;
@@ -50,6 +52,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [playerCount, setPlayerCount] = useState(0);
   const [fps, setFPS] = useState(0);
   const [gameTime, setGameTime] = useState(0);
+
+  // Game Over modal state
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [gameOverData, setGameOverData] = useState({
+    finalScore: 0,
+    survivalTime: 0,
+    rank: 1,
+    killedBy: undefined as string | undefined
+  });
 
   // Initialize game using GameEngineManager singleton
   useEffect(() => {
@@ -203,6 +214,61 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   }, [gameUpdate, isMultiplayer]);
 
+  // Game Over handlers
+  const handleRespawn = () => {
+    setIsGameOver(false);
+    
+    // Reset game state
+    const gameEngine = gameEngineManager.getGameEngine();
+    if (gameEngine) {
+      // Respawn the local player
+      gameEngine.respawnLocalPlayer();
+    }
+    
+    console.log('🔄 Player respawned');
+  };
+
+  const handleReturnToLobby = () => {
+    setIsGameOver(false);
+    
+    // Navigate back to main menu or lobby
+    window.location.href = '/';
+    
+    console.log('🏠 Returning to lobby');
+  };
+
+  // Listen for player death events
+  useEffect(() => {
+    const gameEngine = gameEngineManager.getGameEngine();
+    if (!gameEngine) return;
+
+    // Check for player death periodically
+    const deathCheckInterval = setInterval(() => {
+      const gameState = gameEngine.getGameState();
+      if (!gameState) return;
+
+      const socketId = socketService.getSocket()?.id;
+      const localPlayerData = gameState.players.find(p => p.id === socketId || p.isLocalPlayer);
+      
+      if (localPlayerData && !localPlayerData.isAlive && !isGameOver) {
+        // Player died, show game over modal
+        const playerRank = leaderboard.findIndex(p => p.id === localPlayerData.id) + 1;
+        
+        setGameOverData({
+          finalScore: localPlayerData.score || 0,
+          survivalTime: gameState.gameTime,
+          rank: playerRank > 0 ? playerRank : leaderboard.length + 1,
+          killedBy: (localPlayerData as any).killedBy || undefined
+        });
+        setIsGameOver(true);
+        
+        console.log('💀 Player died, showing game over modal');
+      }
+    }, 1000);
+
+    return () => clearInterval(deathCheckInterval);
+  }, [isGameOver, leaderboard]);
+
   return (
     <div 
       ref={containerRef}
@@ -231,8 +297,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         localPlayer={localPlayer}
         leaderboard={leaderboard}
         playerCount={playerCount}
-        fps={fps}
-        gameTime={gameTime}
+      />
+
+      {/* Game Over Modal */}
+      <GameOverModal
+        isVisible={isGameOver}
+        finalScore={gameOverData.finalScore}
+        survivalTime={gameOverData.survivalTime}
+        rank={gameOverData.rank}
+        killedBy={gameOverData.killedBy}
+        onRespawn={handleRespawn}
+        onReturnToLobby={handleReturnToLobby}
       />
     </div>
   );

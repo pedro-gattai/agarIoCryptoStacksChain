@@ -65,29 +65,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const handlePlayNow = () => {
-    setComingSoonConfig({
-      title: "Game Launching Soon!",
-      feature: "the full game",
-      icon: "🎮"
-    });
-    setShowComingSoon(true);
-  };
-
   const handleBuyToken = () => {
     setComingSoonConfig({
       title: "Token Presale Coming Soon!",
       feature: "$AGAR token presale",
       icon: "💎"
-    });
-    setShowComingSoon(true);
-  };
-
-  const handleConnectWallet = () => {
-    setComingSoonConfig({
-      title: "Wallet Integration Ready!",
-      feature: "wallet connection",
-      icon: "🔗"
     });
     setShowComingSoon(true);
   };
@@ -136,7 +118,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             ) : (
               <button 
                 className="connect-wallet-nav"
-                onClick={handleConnectWallet}
+                onClick={() => setShowWalletModal(true)}
                 disabled={connecting}
               >
                 {connecting ? 'Connecting...' : 'Connect Wallet'}
@@ -184,7 +166,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             ) : (
               <button 
                 className="mobile-connect-wallet"
-                onClick={handleConnectWallet}
+                onClick={() => setShowWalletModal(true)}
                 disabled={connecting}
               >
                 {connecting ? 'Connecting...' : 'Connect Wallet'}
@@ -245,7 +227,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="hero-actions">
               <button 
                 className="cta-play"
-                onClick={handlePlayNow}
+                onClick={() => {
+                  console.log('🎮 LandingPage: Play Now button clicked!');
+                  onPlayNow();
+                }}
               >
                 <span className="cta-icon">🎮</span>
                 PLAY NOW
@@ -258,10 +243,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             <div className="connection-indicator">
-              <div className="indicator pre-launch">
+              <div className="indicator live">
                 <span className="indicator-dot"></span>
                 <span className="indicator-text">
-                  Pre-Launch Mode
+                  Live Demo Mode - Ready to Play!
                 </span>
               </div>
             </div>

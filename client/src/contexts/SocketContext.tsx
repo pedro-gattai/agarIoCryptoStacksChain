@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { getSocketService } from '../services/socketService';
 // import type { SocketService } from '../services/socketService';
 import type { GameRoom, GameUpdate } from 'shared';
+import { DEMO_CONSTANTS } from 'shared';
 import { gameEngineManager } from '../services/GameEngineManager';
 
 interface SocketContextType {
@@ -118,6 +119,41 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         setGameUpdate(update);
       });
 
+      // DISABLED: Immediate updates cause conflicts with server authority
+      // All state changes now come exclusively via game_update
+      
+      /*
+      socketService.on('player_update', (update: any) => {
+        // DISABLED to prevent conflicts
+      });
+
+      socketService.on('pellet_removed', (update: any) => {
+        // DISABLED to prevent conflicts  
+      });
+      */
+
+      // Handle player death events
+      socketService.on('player_death', (deathEvent: any) => {
+        console.log('💀 CLIENT: Player death event:', deathEvent.data);
+        
+        // Show death notification (for other players dying)
+        const gameEngine = gameEngineManager.getGameEngine();
+        if (gameEngine) {
+          gameEngine.handleDeathEvent(deathEvent.data);
+        }
+      });
+
+      // Handle your own death
+      socketService.on('you_died', (deathData: any) => {
+        console.log('💀 CLIENT: You died!', deathData);
+        
+        // Trigger game over modal
+        const gameEngine = gameEngineManager.getGameEngine();
+        if (gameEngine) {
+          gameEngine.handleLocalPlayerDeath(deathData);
+        }
+      });
+
       socketService.on('game_ended', (_data: any) => {
         if (currentRoom) {
           setCurrentRoom((prev: GameRoom | null) => prev ? { ...prev, status: 'finished' } : null);
@@ -185,6 +221,15 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         await socketService.connect(serverUrl);
         setIsConnected(true);
         setError(null);
+        
+        // DEMO MODE: Auto-join global room after connection
+        if (DEMO_CONSTANTS.ENABLED) {
+          console.log('🎮 SocketContext: Demo mode detected, auto-joining global room after connection...');
+          setTimeout(() => {
+            console.log('🚀 SocketContext: Attempting auto-join for demo mode');
+            socketService.joinGlobalRoom(DEMO_CONSTANTS.DEMO_WALLET_ADDRESS);
+          }, 1000); // 1 second delay to ensure everything is ready
+        }
       } catch (err) {
         console.error('SocketContext: Auto-connect failed:', err);
         setError('Failed to connect to game server');

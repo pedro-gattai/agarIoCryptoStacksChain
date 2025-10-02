@@ -254,7 +254,7 @@ class GameEngineManager {
   }
 
   /**
-   * Reset para permitir nova inicialização (para desenvolvimento)
+   * Reset to allow new initialization
    */
   reset(): void {
     this.destroy();

@@ -2,13 +2,13 @@ import { Server, Socket } from 'socket.io';
 import { GlobalRoomManager } from '../services/GlobalRoomManager';
 import type { PlayerInput } from 'shared';
 import { GameService } from '../services/GameService';
-import { BlockchainService } from '../services/BlockchainService';
+// import { BlockchainService } from '../services/BlockchainService'; // Conditionally imported
 import { StatsService } from '../services/StatsService';
 
 export async function setupGlobalGameSocket(
   io: Server,
   gameService: GameService,
-  blockchainService: BlockchainService,
+  blockchainService: any, // Make blockchain service optional for demo mode
   statsService: StatsService
 ): Promise<{ cleanup: () => void }> {
   const globalRoomManager = new GlobalRoomManager(io, gameService, blockchainService, statsService);

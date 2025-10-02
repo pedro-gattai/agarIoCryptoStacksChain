@@ -224,7 +224,7 @@ export class BlockchainService {
         contractAddress: this.contractAddress,
         contractName: this.contractName,
         functionName: 'get-game-pool',
-        functionArgs: [`0x${gameId.toString(16).padStart(32, '0')}`]
+        arguments: [`0x${gameId.toString(16).padStart(32, '0')}`]
       });
       
       return result;
@@ -245,7 +245,7 @@ export class BlockchainService {
         contractAddress: this.contractAddress,
         contractName: this.contractName,
         functionName: 'get-next-game-id',
-        functionArgs: []
+        arguments: []
       });
       
       // Parse the result and return the game ID

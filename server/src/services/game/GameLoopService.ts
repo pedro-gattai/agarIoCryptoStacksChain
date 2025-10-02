@@ -87,11 +87,20 @@ export class GameLoopService {
 
   private processInput(player: PlayerConnection, input: PlayerInput): void {
     // Initialize player properties if not exists
-    if (!(player as any).size) (player as any).size = 25;
-    if (!(player as any).score) (player as any).score = 0;
+    if (!(player as any).size) {
+      (player as any).size = 25;
+      console.log(`👤 Initializing player ${player.playerId} with size 25`);
+    }
+    if (!(player as any).score) {
+      (player as any).score = 0;
+      console.log(`👤 Initializing player ${player.playerId} with score 0`);
+    }
     
     // Update player position based on mouse position
     if (input.mousePosition) {
+      const oldX = player.position.x;
+      const oldY = player.position.y;
+      
       // Simple movement towards mouse position
       const dx = input.mousePosition.x - player.position.x;
       const dy = input.mousePosition.y - player.position.y;
@@ -101,7 +110,7 @@ export class GameLoopService {
         // Speed decreases with size (same logic as client)
         const playerSize = (player as any).size || 25;
         const speedMultiplier = Math.max(0.2, 1 - (playerSize - 25) / 120);
-        const baseSpeed = 0.5; // Further reduced for slower, more strategic gameplay
+        const baseSpeed = 5.0; // Increased speed for better gameplay (was 0.5)
         const moveSpeed = baseSpeed * speedMultiplier;
         
         const newX = player.position.x + (dx / distance) * moveSpeed;
@@ -110,6 +119,8 @@ export class GameLoopService {
         // Apply boundary constraints
         player.position.x = Math.max(20, Math.min(this.WORLD_SIZE.width - 20, newX));
         player.position.y = Math.max(20, Math.min(this.WORLD_SIZE.height - 20, newY));
+        
+        // Movement tracking disabled to reduce debug spam
       }
     }
 
@@ -165,7 +176,9 @@ export class GameLoopService {
     const globalRoom = this.roomService.getGlobalRoom();
     const playerSockets = this.roomService.getAllPlayerSockets();
     
-    // Create game update with pellets
+    // Broadcast tracking disabled to reduce debug spam
+    
+    // Create comprehensive game update with pellets
     const gameUpdate = {
       timestamp: Date.now(),
       players: Array.from(globalRoom.players.values()).map(player => ({
@@ -173,7 +186,9 @@ export class GameLoopService {
         position: player.position,
         size: (player as any).size || 25,
         color: player.isBot ? '#888888' : '#4ECDC4',
-        score: (player as any).score || 0
+        score: (player as any).score || 0,
+        isAlive: (player as any).isAlive !== false, // Default to true
+        isBot: player.isBot
       })),
       gameState: {
         pellets: Array.from(this.pellets.values()).map(pellet => ({
@@ -190,6 +205,112 @@ export class GameLoopService {
       if (socket && socket.connected) {
         socket.emit('game_update', gameUpdate);
       }
+    }
+  }
+
+  private broadcastPlayerUpdate(playerId: string, playerData: any): void {
+    const playerSockets = this.roomService.getAllPlayerSockets();
+    
+    // Immediate update for specific player action
+    const playerUpdate = {
+      timestamp: Date.now(),
+      type: 'player_update',
+      player: playerData
+    };
+
+    // Broadcast to all connected players for immediate sync
+    for (const [socketId, socket] of playerSockets) {
+      if (socket && socket.connected) {
+        socket.emit('player_update', playerUpdate);
+      }
+    }
+  }
+
+  private broadcastPelletRemoval(pelletId: string): void {
+    const playerSockets = this.roomService.getAllPlayerSockets();
+    
+    // Immediate pellet removal notification
+    const pelletRemoval = {
+      timestamp: Date.now(),
+      type: 'pellet_removed',
+      pelletId: pelletId
+    };
+
+    // Broadcast to all connected players
+    for (const [socketId, socket] of playerSockets) {
+      if (socket && socket.connected) {
+        socket.emit('pellet_removed', pelletRemoval);
+      }
+    }
+    
+    console.log(`📡 Broadcasted pellet removal: ${pelletId} to ${playerSockets.size} clients`);
+  }
+
+  private broadcastDeathEvent(deathData: {
+    killerId: string;
+    killerName: string;
+    killerSize: number;
+    killerScore: number;
+    victimId: string;
+    victimName: string;
+    victimSize: number;
+    timestamp: number;
+  }): void {
+    const playerSockets = this.roomService.getAllPlayerSockets();
+    
+    // Death event notification
+    const deathEvent = {
+      timestamp: Date.now(),
+      type: 'player_death',
+      data: deathData
+    };
+
+    // Broadcast to all connected players
+    for (const [socketId, socket] of playerSockets) {
+      if (socket && socket.connected) {
+        socket.emit('player_death', deathEvent);
+      }
+    }
+    
+    console.log(`💀 Broadcasted death event: ${deathData.killerName} killed ${deathData.victimName} to ${playerSockets.size} clients`);
+  }
+
+  private handlePlayerDeath(globalRoom: any, victimId: string, killerId: string): void {
+    const victim = globalRoom.players.get(victimId);
+    if (!victim) return;
+
+    const isBot = victim.isBot;
+    
+    if (isBot) {
+      // For bots, simply respawn them
+      this.respawnPlayer(globalRoom, victimId);
+    } else {
+      // For human players, mark as dead and let client handle game over
+      (victim as any).isAlive = false;
+      (victim as any).deathTime = Date.now();
+      (victim as any).killedBy = killerId;
+      
+      console.log(`💀 Human player ${victimId} marked as dead, killed by ${killerId}`);
+      
+      // Notify the specific player about their death
+      const playerSockets = this.roomService.getAllPlayerSockets();
+      const victimSocket = playerSockets.get(victimId);
+      
+      if (victimSocket && victimSocket.connected) {
+        victimSocket.emit('you_died', {
+          killedBy: killerId,
+          timestamp: Date.now()
+        });
+      }
+      
+      // Auto-respawn after 3 seconds if not manually triggered
+      setTimeout(() => {
+        const stillDead = globalRoom.players.get(victimId);
+        if (stillDead && !(stillDead as any).isAlive) {
+          this.respawnPlayer(globalRoom, victimId);
+          console.log(`🔄 Auto-respawned player ${victimId} after 3 seconds`);
+        }
+      }, 3000);
     }
   }
 
@@ -235,33 +356,56 @@ export class GameLoopService {
   
   private processCollisions(): void {
     const globalRoom = this.roomService.getGlobalRoom();
+    const humanPlayers = Array.from(globalRoom.players.values()).filter(p => !p.isBot);
+    const botPlayers = Array.from(globalRoom.players.values()).filter(p => p.isBot);
+    
+    // Collision processing tracking disabled to reduce debug spam
     
     // Check player-pellet collisions
     for (const [playerId, player] of globalRoom.players) {
       const playerSize = (player as any).size || 25;
+      const isBot = player.isBot;
+      const logPrefix = isBot ? '🤖' : '👤';
       
+      // Player collision state tracking disabled to reduce debug spam
+      
+      let collisionChecked = 0;
       for (const [pelletId, pellet] of this.pellets) {
         const distance = this.getDistance(player.position, pellet.position);
         const combinedRadius = playerSize / 2 + pellet.size;
         
+        collisionChecked++;
+        
         if (distance < combinedRadius) {
-          // Player eats pellet
-          const newSize = Math.min(100, playerSize + pellet.value * 0.5);
-          const newScore = ((player as any).score || 0) + Math.floor(pellet.value * 10);
+          // Player eats pellet - SERVER AUTHORITATIVE
+          const pelletValue = pellet.value;
+          const sizeGain = pelletValue * 0.4; // Reduced from 0.5 for better balance
+          const scoreGain = Math.floor(pelletValue * 15); // Increased from 10 for more visible progress
           
-          // Update player
+          const oldSize = playerSize;
+          const oldScore = (player as any).score || 0;
+          
+          const newSize = Math.min(120, oldSize + sizeGain); // Increased max size
+          const newScore = oldScore + scoreGain;
+          
+          // SERVER-AUTHORITATIVE UPDATE
           (player as any).size = newSize;
           (player as any).score = newScore;
           
-          // Remove pellet
+          // Remove pellet from server state FIRST
           this.pellets.delete(pelletId);
           
-          const isBot = player.isBot;
-          const logPrefix = isBot ? '🤖' : '👤';
-          console.log(`${logPrefix} Player ${playerId} ate pellet ${pelletId}, size: ${playerSize} → ${newSize}`);
+          console.log(`${logPrefix} Player ${playerId} ate pellet ${pelletId}, size: ${oldSize.toFixed(1)} → ${newSize.toFixed(1)}, score: ${oldScore} → ${newScore} (+${scoreGain})`);
+          
+          // REMOVED: Immediate broadcasts cause client conflicts
+          // State will be sent via regular broadcastUpdates() only
+          
           break; // Only eat one pellet per tick to prevent issues
         }
+        // Missed collision logging disabled to reduce debug spam
       }
+      
+      // Collision count tracking disabled to reduce debug spam
     }
     
     // Check player-player collisions
@@ -360,16 +504,12 @@ export class GameLoopService {
         const requiredSize = preySize * 1.2; // Must be 20% bigger to eat
         
         if (predatorSize > requiredSize && distance < predatorSize / 2) {
-          // Predator eats prey
+          // Predator eats prey - DEATH EVENT
           const gainedMass = preySize * 0.8; // Gain 80% of eaten player's mass
-          const newSize = Math.min(120, predatorSize + gainedMass * 0.5);
-          const newScore = ((predator as any).score || 0) + Math.floor(preySize * 20);
+          const newPredatorSize = Math.min(150, predatorSize + gainedMass * 0.6); // Increased max size and gain
+          const scoreGain = Math.floor(preySize * 25); // Increased score gain
+          const newPredatorScore = ((predator as any).score || 0) + scoreGain;
           
-          // Update predator
-          (predator as any).size = newSize;
-          (predator as any).score = newScore;
-          
-          // Mark prey as dead (will be handled by respawn system)
           const preyId = (prey as any).playerId;
           const predatorId = (predator as any).playerId;
           
@@ -378,10 +518,29 @@ export class GameLoopService {
           const predatorPrefix = predatorIsBot ? '🤖' : '👤';
           const preyPrefix = preyIsBot ? '🤖' : '👤';
           
-          console.log(`🍽️ ${predatorPrefix} ${predatorId} (${predatorSize}) ate ${preyPrefix} ${preyId} (${preySize}) → size: ${newSize}`);
+          // Update predator stats
+          (predator as any).size = newPredatorSize;
+          (predator as any).score = newPredatorScore;
           
-          // Remove eaten player and respawn them
-          this.respawnPlayer(globalRoom, preyId);
+          console.log(`💀 DEATH EVENT: ${predatorPrefix} ${predatorId} (${predatorSize}) ate ${preyPrefix} ${preyId} (${preySize}) → size: ${newPredatorSize}, score: +${scoreGain}`);
+          
+          // Broadcast death event to all players
+          this.broadcastDeathEvent({
+            killerId: predatorId,
+            killerName: predatorIsBot ? 'Bot' : 'Player',
+            killerSize: newPredatorSize,
+            killerScore: newPredatorScore,
+            victimId: preyId,
+            victimName: preyIsBot ? 'Bot' : 'Player',
+            victimSize: preySize,
+            timestamp: Date.now()
+          });
+          
+          // REMOVED: Immediate broadcasts cause client conflicts
+          // Predator update will be sent via regular broadcastUpdates()
+          
+          // Handle victim respawn
+          this.handlePlayerDeath(globalRoom, preyId, predatorId);
           break; // Only eat one player per tick
         }
       }
@@ -392,18 +551,28 @@ export class GameLoopService {
     const player = globalRoom.players.get(playerId);
     if (!player) return;
     
+    const isBot = player.isBot;
+    const oldScore = (player as any).score || 0;
+    
     // Reset player stats
     (player as any).size = 25;
-    (player as any).score = Math.max(0, ((player as any).score || 0) - 50); // Lose some score
+    (player as any).isAlive = true;
+    (player as any).deathTime = null;
+    (player as any).killedBy = null;
     
-    // Respawn at random position
-    player.position = {
-      x: Math.random() * this.WORLD_SIZE.width,
-      y: Math.random() * this.WORLD_SIZE.height
-    };
+    // Score penalty for humans, bots keep their score
+    if (!isBot) {
+      (player as any).score = Math.max(0, oldScore - Math.floor(oldScore * 0.1)); // Lose 10% of score
+    }
     
-    const isBot = player.isBot;
+    // Respawn at safe random position
+    player.position = this.generateSafePelletPosition(); // Reuse safe position logic
+    
     const logPrefix = isBot ? '🤖' : '👤';
-    console.log(`🔄 ${logPrefix} Player ${playerId} respawned at (${Math.floor(player.position.x)}, ${Math.floor(player.position.y)})`);
+    const newScore = (player as any).score;
+    console.log(`🔄 ${logPrefix} Player ${playerId} respawned at (${Math.floor(player.position.x)}, ${Math.floor(player.position.y)}), score: ${oldScore} → ${newScore}`);
+    
+    // REMOVED: Immediate broadcasts cause client conflicts
+    // Respawn will be reflected in regular broadcastUpdates()
   }
 }

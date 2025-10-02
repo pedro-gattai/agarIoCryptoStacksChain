@@ -1,6 +1,6 @@
 # Wrangler configuration for AgarCoin project
 name = "agarcoin-frontend"
-compatibility_date = "2024-01-01"
+compatibility_date = "2025-10-01"
 
 # Pages configuration for React frontend
 [pages]

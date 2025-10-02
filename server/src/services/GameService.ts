@@ -1,4 +1,5 @@
 import { GameState, PlayerState, Pellet, GameMode, GameStatus, GameConfig, Position, GAME_CONSTANTS, COLORS } from '../types/shared';
+import { DEMO_CONSTANTS } from 'shared';
 import type { StatsService, GameResult } from './StatsService';
 import { GameContractService } from './GameContractService';
 
@@ -24,13 +25,16 @@ export class GameService {
   async createGame(entryFee: number, maxPlayers = 100): Promise<GameState> {
     const gameId = this.generateGameId();
     
+    // In demo mode, set entry fee to 0
+    const actualEntryFee = DEMO_CONSTANTS.ENABLED ? DEMO_CONSTANTS.DEMO_ENTRY_FEE : entryFee;
+    
     const game: GameState = {
       id: gameId,
       players: [],
       pellets: this.generatePellets(),
       gameMode: GameMode.BATTLE_ROYALE,
       prizePool: 0,
-      entryFee,
+      entryFee: actualEntryFee,
       startTime: Date.now(),
       status: GameStatus.ACTIVE // Global room starts immediately
     };
@@ -67,7 +71,12 @@ export class GameService {
     color?: string
   ): boolean {
     const game = this.games.get(gameId);
-    if (!game || game.status !== GameStatus.WAITING) {
+    if (!game) {
+      return false;
+    }
+
+    // In demo mode, allow joining active games, not just waiting games
+    if (!DEMO_CONSTANTS.ENABLED && game.status !== GameStatus.WAITING) {
       return false;
     }
 
@@ -75,9 +84,12 @@ export class GameService {
       return false;
     }
 
+    // Use demo wallet address if in demo mode
+    const actualWalletAddress = DEMO_CONSTANTS.ENABLED ? DEMO_CONSTANTS.DEMO_WALLET_ADDRESS : walletAddress;
+
     const player: PlayerState = {
       id: playerId,
-      walletAddress,
+      walletAddress: actualWalletAddress,
       position: position || this.getRandomSpawnPosition(),
       size: GAME_CONSTANTS.MIN_PLAYER_SIZE,
       color: color || COLORS[game.players.length % COLORS.length],
@@ -86,10 +98,14 @@ export class GameService {
     };
 
     game.players.push(player);
-    game.prizePool += game.entryFee;
+    
+    // Only add to prize pool if not in demo mode
+    if (!DEMO_CONSTANTS.ENABLED) {
+      game.prizePool += game.entryFee;
+    }
 
-    // Auto-start game if full
-    if (game.players.length >= this.gameConfig.maxPlayers) {
+    // Auto-start game if full (skip in demo mode for continuous play)
+    if (!DEMO_CONSTANTS.ENABLED && game.players.length >= this.gameConfig.maxPlayers) {
       this.startGame(gameId);
     }
 
@@ -258,7 +274,7 @@ export class GameService {
         const achievements = this.statsService!.checkAchievements(player.id);
         if (achievements.length > 0) {
           console.log(`Player ${player.id} unlocked achievements:`, achievements);
-          // TODO: Emit achievement notifications via socket
+          // Emit achievement notifications via socket
         }
       });
     }

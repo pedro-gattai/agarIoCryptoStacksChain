@@ -4,11 +4,13 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import { GameService } from './services/GameService';
-import { BlockchainService } from './services/BlockchainService';
 import { StatsService } from './services/StatsService';
 import { setupGlobalGameSocket } from './sockets/globalGameSocket';
 
 dotenv.config();
+
+// Import BlockchainService conditionally for demo mode
+const DEMO_MODE = process.env.DEMO_MODE === 'true';
 
 const app = express();
 const httpServer = createServer(app);
@@ -16,7 +18,9 @@ const io = new Server(httpServer, {
   cors: {
     origin: [
       process.env.CLIENT_URL || "http://localhost:5173",
-      "http://localhost:5174" // For when port 5173 is in use
+      "http://localhost:5174", // For when port 5173 is in use
+      "http://localhost:5175", // For when port 5174 is in use
+      "http://localhost:5176"  // For when port 5175 is in use
     ],
     methods: ["GET", "POST"]
   }
@@ -36,8 +40,21 @@ app.use(express.json());
 
 // Services
 const gameService = new GameService();
-const blockchainService = new BlockchainService();
 const statsService = new StatsService();
+
+// Initialize blockchain service only if not in demo mode
+let blockchainService: any = null;
+if (!DEMO_MODE) {
+  console.log('🔗 Initializing blockchain service...');
+  try {
+    const { BlockchainService } = require('./services/BlockchainService');
+    blockchainService = new BlockchainService();
+  } catch (error: any) {
+    console.warn('⚠️  Blockchain service failed to load, continuing in demo mode:', error?.message || error);
+  }
+} else {
+  console.log('🎮 Running in DEMO MODE - blockchain disabled');
+}
 
 // Global cleanup function reference
 let globalCleanup: (() => void) | null = null;
