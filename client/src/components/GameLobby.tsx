@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletModal } from './WalletModal';
+import { WalletLogo } from './WalletLogo';
 import { DEMO_CONSTANTS } from 'shared';
+import { Gamepad2, Users, Target, Coins, Trophy, Play, Wallet, Loader2, ArrowLeft, Award, BarChart3 } from 'lucide-react';
 
 interface GameLobbyProps {
   onGameStart: () => void;
@@ -37,31 +39,8 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
     balance 
   } = useWallet();
 
-  // Simplified auto-join for demo mode - always join when connected in demo mode
-  useEffect(() => {
-    console.log('🔍 GameLobby: Checking join conditions:', {
-      isConnected,
-      connected,
-      DEMO_ENABLED: DEMO_CONSTANTS.ENABLED,
-      inDemoMode: DEMO_CONSTANTS.ENABLED && !connected
-    });
-    
-    // In demo mode, only require socket connection
-    if (DEMO_CONSTANTS.ENABLED && isConnected) {
-      console.log('✅ GameLobby: Demo mode - auto-joining with socket connection');
-      joinGlobalRoom();
-    }
-    // In production mode, require both socket and wallet
-    else if (!DEMO_CONSTANTS.ENABLED && isConnected && connected) {
-      console.log('✅ GameLobby: Production mode - joining with wallet connection');
-      joinGlobalRoom();
-    } else {
-      console.log('❌ GameLobby: Conditions NOT met:', {
-        needsDemoMode: !DEMO_CONSTANTS.ENABLED && !connected,
-        needsSocket: !isConnected
-      });
-    }
-  }, [isConnected, connected]);
+  // REMOVED: Auto-join on mount
+  // Players must now manually click "PLAY NOW" to join the game
 
   // Auto-navigate to game when successfully joined a room
   useEffect(() => {
@@ -140,14 +119,19 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
     <div className="global-lobby-container">
       <div className="lobby-header">
         <div className="header-left">
-          <h1>🎮 Global Arena</h1>
-          <p>Join {gameStatus.maxPlayers} players in epic battles!</p>
+          <div className="lobby-title">
+            <Gamepad2 size={40} strokeWidth={2.5} className="lobby-icon" />
+            <div>
+              <h1>Global Arena</h1>
+              <p>Join {gameStatus.maxPlayers} players in epic battles!</p>
+            </div>
+          </div>
         </div>
         
         <div className="header-right">
           {DEMO_CONSTANTS.ENABLED ? (
-            <div className="wallet-display">
-              <div className="wallet-icon">🎮</div>
+            <div className="wallet-display demo-mode">
+              <Gamepad2 size={32} strokeWidth={2} className="wallet-icon-svg" />
               <div className="wallet-info">
                 <div className="wallet-name">Demo Mode</div>
                 <div className="wallet-balance">∞ Demo STX</div>
@@ -155,8 +139,8 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
               </div>
             </div>
           ) : connected ? (
-            <div className="wallet-display">
-              <div className="wallet-icon">{wallet?.icon}</div>
+            <div className="wallet-display connected">
+              <WalletLogo walletName={wallet?.name || 'Hiro Wallet'} size={32} />
               <div className="wallet-info">
                 <div className="wallet-name">{wallet?.name}</div>
                 <div className="wallet-balance">{balance.toFixed(3)} STX</div>
@@ -166,12 +150,12 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
               </div>
             </div>
           ) : (
-            <button 
+            <button
               className="wallet-connect-btn"
               onClick={() => setShowWalletModal(true)}
               disabled={connecting}
             >
-              <span className="wallet-icon">👛</span>
+              <Wallet size={20} strokeWidth={2.5} />
               {connecting ? 'Connecting...' : 'Connect Wallet'}
             </button>
           )}
@@ -199,31 +183,31 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
         {/* Global Game Stats */}
         <div className="global-game-stats">
           <div className="stat-card">
-            <div className="stat-icon">👥</div>
+            <Users size={40} strokeWidth={2} className="stat-icon-svg" />
             <div className="stat-content">
               <div className="stat-number">{gameStatus.playersOnline}</div>
               <div className="stat-label">Players Online</div>
             </div>
           </div>
-          
+
           <div className="stat-card">
-            <div className="stat-icon">🎯</div>
+            <Target size={40} strokeWidth={2} className="stat-icon-svg" />
             <div className="stat-content">
               <div className="stat-number">{gameStatus.maxPlayers}</div>
               <div className="stat-label">Max Capacity</div>
             </div>
           </div>
-          
+
           <div className="stat-card">
-            <div className="stat-icon">💰</div>
+            <Coins size={40} strokeWidth={2} className="stat-icon-svg" />
             <div className="stat-content">
               <div className="stat-number">0.01</div>
               <div className="stat-label">Entry Fee (STX)</div>
             </div>
           </div>
-          
+
           <div className="stat-card">
-            <div className="stat-icon">🏆</div>
+            <Trophy size={40} strokeWidth={2} className="stat-icon-svg" />
             <div className="stat-content">
               <div className="stat-number">24/7</div>
               <div className="stat-label">Always Active</div>
@@ -235,20 +219,21 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
         <div className="main-action-area">
           {!isConnected ? (
             <div className="connecting-state">
-              <div className="loading-spinner"></div>
+              <Loader2 size={48} className="loading-spinner-icon" />
               <h3>Connecting to Global Arena...</h3>
               <p>Please wait while we connect you to the game server.</p>
             </div>
-          ) : !connected ? (
+          ) : !connected && !DEMO_CONSTANTS.ENABLED ? (
             <div className="wallet-required">
-              <div className="wallet-icon-large">👛</div>
+              <Wallet size={64} strokeWidth={2} className="wallet-icon-large-svg" />
               <h3>Connect Your Wallet</h3>
               <p>Connect your Stacks wallet to join the battle and start earning!</p>
-              <button 
+              <button
                 className="connect-wallet-large"
                 onClick={() => setShowWalletModal(true)}
                 disabled={connecting}
               >
+                <Wallet size={20} strokeWidth={2.5} />
                 {connecting ? 'Connecting...' : 'Connect Wallet'}
               </button>
             </div>
@@ -268,24 +253,18 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
             </div>
           ) : (
             <div className="ready-to-play">
-              <div className="play-icon">🎮</div>
+              <Gamepad2 size={64} strokeWidth={2} className="play-icon-svg" />
               <h3>Ready to Battle!</h3>
               <p>Jump into the global arena and compete with {gameStatus.playersOnline} players!</p>
-              
-              <button 
+
+              <button
                 className="play-now-btn"
                 onClick={handlePlayNow}
-                disabled={!isConnected || !connected}
+                disabled={!isConnected || (!connected && !DEMO_CONSTANTS.ENABLED)}
               >
-                <span className="btn-icon">🚀</span>
-                PLAY NOW
+                <Play size={24} strokeWidth={2.5} fill="currentColor" />
+                <span>PLAY NOW</span>
               </button>
-              
-              <div className="game-info">
-                <p>💎 Entry Fee: 0.01 STX</p>
-                <p>🏆 Win Rate: Skill-based rewards</p>
-                <p>⚡ Instant payouts to your wallet</p>
-              </div>
             </div>
           )}
         </div>
@@ -293,57 +272,32 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
         {/* Action Buttons */}
         <div className="lobby-actions">
           {onBackToMenu && (
-            <button 
+            <button
               onClick={onBackToMenu}
               className="back-to-menu-btn"
             >
-              ← Back to Home
+              <ArrowLeft size={20} strokeWidth={2} />
+              <span>Back to Home</span>
             </button>
           )}
           {onShowLeaderboards && (
-            <button 
+            <button
               onClick={onShowLeaderboards}
               className="leaderboards-btn"
             >
-              🏆 Leaderboards
+              <BarChart3 size={20} strokeWidth={2} />
+              <span>Leaderboards</span>
             </button>
           )}
           {onShowAchievements && (
-            <button 
+            <button
               onClick={onShowAchievements}
               className="achievements-btn"
             >
-              🏅 Achievements
+              <Award size={20} strokeWidth={2} />
+              <span>Achievements</span>
             </button>
           )}
-        </div>
-
-        {/* How It Works */}
-        <div className="how-it-works">
-          <h3>How It Works</h3>
-          <div className="steps">
-            <div className="step">
-              <div className="step-number">1</div>
-              <div className="step-content">
-                <h4>Connect Wallet</h4>
-                <p>Link your Stacks wallet</p>
-              </div>
-            </div>
-            <div className="step">
-              <div className="step-number">2</div>
-              <div className="step-content">
-                <h4>Join Arena</h4>
-                <p>Enter the global battlefield</p>
-              </div>
-            </div>
-            <div className="step">
-              <div className="step-number">3</div>
-              <div className="step-content">
-                <h4>Play & Earn</h4>
-                <p>Win games, earn STX rewards</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
       

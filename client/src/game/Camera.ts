@@ -28,7 +28,7 @@ export class Camera {
     } else {
       // Fallback: center camera on world if no player
       console.log('📷 Camera: No player found, using fallback position');
-      this.targetPosition = { x: 1500, y: 1500 }; // Center of 3000x3000 world
+      this.targetPosition = { x: 2000, y: 2000 }; // FIXED: Center of 4000x4000 world (was 1500)
       this.targetZoom = 0.8; // Good default zoom level
     }
 

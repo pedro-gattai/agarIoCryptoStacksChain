@@ -75,17 +75,27 @@ export async function setupGlobalGameSocket(
       }
     });
 
-    // Handle respawn request
-    socket.on('request_respawn', () => {
+    // Handle respawn request (both event names for compatibility)
+    const handleRespawn = () => {
       try {
         console.log(`🔄 Player ${socket.id} requested respawn`);
-        socket.emit('respawn_denied', {
-          message: 'Respawn not available yet. Please wait.'
+
+        // Force respawn the player
+        globalRoomManager.respawnPlayer(socket.id);
+
+        socket.emit('respawn_acknowledged', {
+          message: 'Respawning...'
         });
       } catch (error) {
         console.error('Error handling respawn:', error);
+        socket.emit('respawn_error', {
+          message: 'Failed to respawn. Please try again.'
+        });
       }
-    });
+    };
+
+    socket.on('request_respawn', handleRespawn);
+    socket.on('respawn_request', handleRespawn); // Support both event names
 
     // Handle room status request
     socket.on('get_room_status', () => {
@@ -146,11 +156,35 @@ export async function setupGlobalGameSocket(
       }]);
     });
 
+    // Handle explicit leave game (when returning to lobby)
+    socket.on('leave_game', (data) => {
+      console.log(`👋 [LEAVE_GAME] Player leaving game: ${socket.id}`);
+
+      try {
+        // Clean up player from game but keep socket connection
+        globalRoomManager.handlePlayerLeave(socket);
+
+        // Notify client that they've successfully left
+        socket.emit('left_game', {
+          success: true,
+          timestamp: Date.now()
+        });
+
+        console.log(`✅ [LEAVE_GAME] Player ${socket.id} successfully removed from game`);
+      } catch (error) {
+        console.error('❌ [LEAVE_GAME] Error handling leave game:', error);
+        socket.emit('left_game', {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+
     // Handle disconnection
     socket.on('disconnect', (reason) => {
       console.log(`🔌 [DISCONNECT] Player disconnected: ${socket.id} (${reason})`);
       console.log(`🔌 [DISCONNECT] Remaining clients: ${io.sockets.sockets.size - 1}`);
-      
+
       try {
         globalRoomManager.handlePlayerLeave(socket);
       } catch (error) {

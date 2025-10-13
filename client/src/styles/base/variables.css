@@ -1,11 +1,13 @@
 /* Design System Variables */
 :root {
-  /* Colors */
-  --primary-color: #4ECDC4;
-  --primary-hover: #45B7AA;
-  --secondary-color: #FF6B6B;
+  /* Colors - Stacks Brand Palette */
+  --primary-color: #fc6432; /* Stacks Orange */
+  --primary-hover: #e55428; /* Stacks Orange Darker */
+  --secondary-color: #5546FF; /* Stacks Purple */
+  --secondary-hover: #4435DD;
+  --bitcoin-orange: #F7931A; /* Bitcoin Orange */
   --success-color: #51CF66;
-  --warning-color: #FFEAA7;
+  --warning-color: #F7931A; /* Using Bitcoin Orange for warnings */
   --danger-color: #FF6B6B;
   
   /* Background Colors */

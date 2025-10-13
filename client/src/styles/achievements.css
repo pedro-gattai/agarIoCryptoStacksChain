@@ -18,8 +18,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 30px;
-  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #c084fc 100%);
-  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+  background: linear-gradient(135deg, #fc6432 0%, #F7931A 50%, #5546FF 100%);
+  box-shadow: 0 4px 20px rgba(252, 100, 50, 0.3);
 }
 
 .header-content {
@@ -116,8 +116,8 @@
 
 .filter-group select:focus {
   outline: none;
-  border-color: #8b5cf6;
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+  border-color: #fc6432;
+  box-shadow: 0 0 0 2px rgba(252, 100, 50, 0.3);
 }
 
 .achievement-content {
@@ -141,7 +141,7 @@
   width: 50px;
   height: 50px;
   border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top: 4px solid #8b5cf6;
+  border-top: 4px solid #fc6432;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 20px;
@@ -264,7 +264,7 @@
 
 .progress-fill-small {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #06b6d4);
+  background: linear-gradient(90deg, #fc6432, #F7931A);
   border-radius: 3px;
   transition: width 0.3s ease;
 }

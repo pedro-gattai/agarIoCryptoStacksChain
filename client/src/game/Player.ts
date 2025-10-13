@@ -1,5 +1,15 @@
 import type { Vector2 } from '../utils/mathUtils';
 import { MathUtils } from '../utils/mathUtils';
+import { NETWORK_CONSTANTS } from 'shared';
+
+/**
+ * State snapshot for interpolation
+ */
+interface StateSnapshot {
+  position: Vector2;
+  size: number;
+  timestamp: number;
+}
 
 export class Player {
   public id: string;
@@ -16,6 +26,13 @@ export class Player {
   private acceleration: number = 0.1; // Reduced for smoother, more strategic movement
   public velocity: Vector2 = { x: 0, y: 0 };
 
+  // IMPROVED: Adjusted for better agar.io-like feel
+  private readonly FRICTION = 0.95;
+
+  // PHASE 3: State buffer for interpolation (remote players only)
+  private stateBuffer: StateSnapshot[] = [];
+  private readonly MAX_BUFFER_SIZE = 30; // ~1 second at 30 TPS
+
   constructor(
     id: string,
     position: Vector2,
@@ -29,7 +46,7 @@ export class Player {
     this.isLocalPlayer = isLocalPlayer;
   }
 
-  update(mousePosition?: Vector2): void {
+  update(mousePosition?: Vector2, deltaTime: number = 16.67): void {
     if (!this.isAlive) return;
 
     // Only update size based on mass for non-multiplayer or non-local players
@@ -40,39 +57,108 @@ export class Player {
 
     if (this.isLocalPlayer && mousePosition) {
       // Local player moves toward mouse
-      this.moveToward(mousePosition);
+      this.moveToward(mousePosition, deltaTime);
+
+      // PHASE 5: Apply velocity with delta time for frame-rate independence
+      const deltaMultiplier = deltaTime / 16.67; // Normalize to 60 FPS
+      this.position.x += this.velocity.x * deltaMultiplier;
+      this.position.y += this.velocity.y * deltaMultiplier;
+
+      // Apply friction
+      this.velocity.x *= 0.95;
+      this.velocity.y *= 0.95;
     } else {
-      // Remote players move toward their target position
-      this.moveToward(this.targetPosition);
+      // PHASE 3: Remote players use interpolation for smooth movement
+      this.updateInterpolated();
     }
-
-    // Apply velocity
-    this.position.x += this.velocity.x;
-    this.position.y += this.velocity.y;
-
-    // Apply friction
-    this.velocity.x *= 0.95;
-    this.velocity.y *= 0.95;
   }
 
-  private moveToward(target: Vector2): void {
+  /**
+   * PHASE 3: Add server state to interpolation buffer
+   * Called when receiving server updates for remote players
+   */
+  public addServerState(position: Vector2, size: number, timestamp: number): void {
+    this.stateBuffer.push({ position: { ...position }, size, timestamp });
+
+    // Limit buffer size
+    if (this.stateBuffer.length > this.MAX_BUFFER_SIZE) {
+      this.stateBuffer.shift();
+    }
+  }
+
+  /**
+   * PHASE 3: Update position using interpolation
+   * Render remote players ~100ms in the past for smooth movement
+   */
+  private updateInterpolated(): void {
+    if (this.stateBuffer.length < 2) {
+      // Not enough data, fallback to direct movement
+      this.moveToward(this.targetPosition);
+      this.position.x += this.velocity.x;
+      this.position.y += this.velocity.y;
+      this.velocity.x *= 0.95;
+      this.velocity.y *= 0.95;
+      return;
+    }
+
+    // Render in the past by INTERPOLATION_DELAY
+    const renderTime = Date.now() - NETWORK_CONSTANTS.INTERPOLATION_DELAY;
+
+    // Find two states to interpolate between
+    let previous: StateSnapshot | null = null;
+    let next: StateSnapshot | null = null;
+
+    for (let i = 0; i < this.stateBuffer.length - 1; i++) {
+      if (this.stateBuffer[i].timestamp <= renderTime && this.stateBuffer[i + 1].timestamp >= renderTime) {
+        previous = this.stateBuffer[i];
+        next = this.stateBuffer[i + 1];
+        break;
+      }
+    }
+
+    // If no valid interpolation range, use latest state
+    if (!previous || !next) {
+      const latest = this.stateBuffer[this.stateBuffer.length - 1];
+      this.position = { ...latest.position };
+      this.size = latest.size;
+      return;
+    }
+
+    // Linear interpolation
+    const timeDiff = next.timestamp - previous.timestamp;
+    const t = timeDiff > 0 ? (renderTime - previous.timestamp) / timeDiff : 0;
+
+    this.position.x = previous.position.x + (next.position.x - previous.position.x) * t;
+    this.position.y = previous.position.y + (next.position.y - previous.position.y) * t;
+    this.size = previous.size + (next.size - previous.size) * t;
+
+    // Clean up old states
+    const cutoffTime = Date.now() - 1000; // Keep last 1 second
+    while (this.stateBuffer.length > 0 && this.stateBuffer[0].timestamp < cutoffTime) {
+      this.stateBuffer.shift();
+    }
+  }
+
+  private moveToward(target: Vector2, deltaTime: number = 16.67): void {
     const direction = {
       x: target.x - this.position.x,
       y: target.y - this.position.y
     };
 
     const distance = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-    
+
     if (distance > 5) {
       const normalizedDirection = MathUtils.normalize(direction);
-      
-      // Speed decreases with size (consistent with server)
-      const speedMultiplier = Math.max(0.2, 1 - (this.size - 25) / 120);
+
+      // IMPROVED: Speed decreases with size (consistent with server)
+      // Smoother decay curve matching server-side logic
+      const speedMultiplier = Math.max(0.15, 1 - (this.size - 25) / 200);
       const speed = this.maxSpeed * speedMultiplier;
 
-      // Apply acceleration toward target
-      this.velocity.x += normalizedDirection.x * this.acceleration * speed;
-      this.velocity.y += normalizedDirection.y * this.acceleration * speed;
+      // PHASE 5: Apply acceleration with delta time
+      const deltaMultiplier = deltaTime / 16.67; // Normalize to 60 FPS
+      this.velocity.x += normalizedDirection.x * this.acceleration * speed * deltaMultiplier;
+      this.velocity.y += normalizedDirection.y * this.acceleration * speed * deltaMultiplier;
 
       // Limit max velocity
       const currentSpeed = Math.sqrt(
@@ -167,15 +253,52 @@ export class Player {
     // Don't render if too small or off-screen
     if (screenSize < 2) return;
 
+    // Check if this is a split cell
+    const isSplitCell = (this as any).isSplitCell;
+    const parentPlayerId = (this as any).parentPlayerId;
+
+    // DEBUGGING: Log split cell rendering
+    if (isSplitCell && Math.random() < 0.01) { // Log 1% of frames to avoid spam
+      console.log(`🎨 [Player.render] Rendering split cell:`, {
+        id: this.id.substring(0, 25),
+        parentPlayerId: parentPlayerId?.substring(0, 25),
+        position: `(${this.position.x.toFixed(0)}, ${this.position.y.toFixed(0)})`,
+        screenPos: `(${screenPos.x.toFixed(0)}, ${screenPos.y.toFixed(0)})`,
+        size: this.size.toFixed(1),
+        screenSize: screenSize.toFixed(1),
+        isAlive: this.isAlive,
+        color: this.color
+      });
+    }
+
     // Draw cell body
     ctx.fillStyle = this.color;
-    ctx.strokeStyle = this.isLocalPlayer ? '#fff' : '#333';
-    ctx.lineWidth = this.isLocalPlayer ? 3 : 2;
-    
+
+    // IMPROVED: Different style for split cells
+    if (isSplitCell) {
+      // Split cells have dashed border and slight transparency
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = '#ff0';  // Yellow border for split cells
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 5]); // Dashed line
+    } else if (this.isLocalPlayer) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([]); // Solid line
+    } else {
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]); // Solid line
+    }
+
     ctx.beginPath();
     ctx.arc(screenPos.x, screenPos.y, screenSize, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    // Reset line dash and alpha
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
 
     // Draw player name/ID if large enough
     if (screenSize > 20) {
@@ -183,11 +306,68 @@ export class Player {
       ctx.font = `${Math.max(12, screenSize / 3)}px Arial`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(
-        this.isLocalPlayer ? 'You' : this.id.substring(0, 8),
-        screenPos.x,
-        screenPos.y
-      );
+
+      let displayName = this.isLocalPlayer ? 'You' : this.id.substring(0, 8);
+
+      // IMPROVED: Show parent info for split cells
+      if (isSplitCell) {
+        displayName = `Split`;
+
+        // Calculate merge timer
+        const canMergeAt = (this as any).canMergeAt;
+        let mergeText = '';
+        if (canMergeAt) {
+          const now = Date.now();
+          const timeRemaining = Math.max(0, canMergeAt - now);
+          const secondsRemaining = Math.ceil(timeRemaining / 1000);
+
+          if (secondsRemaining > 0) {
+            mergeText = `${secondsRemaining}s`;
+          } else {
+            mergeText = 'Ready!';
+          }
+        }
+
+        // Also show smaller text with parent info
+        if (screenSize > 30) {
+          ctx.font = `${Math.max(10, screenSize / 4)}px Arial`;
+          ctx.fillText(
+            displayName,
+            screenPos.x,
+            screenPos.y - 10
+          );
+
+          // Show merge timer
+          if (mergeText) {
+            ctx.font = `${Math.max(8, screenSize / 5)}px Arial`;
+            ctx.fillStyle = mergeText === 'Ready!' ? '#4ECDC4' : '#ccc';
+            ctx.fillText(
+              mergeText,
+              screenPos.x,
+              screenPos.y + 5
+            );
+          }
+
+          ctx.font = `${Math.max(8, screenSize / 6)}px Arial`;
+          ctx.fillStyle = '#999';
+          ctx.fillText(
+            `(${parentPlayerId ? parentPlayerId.substring(0, 8) : 'unknown'})`,
+            screenPos.x,
+            screenPos.y + 18
+          );
+        } else {
+          // Smaller cells just show merge timer
+          if (mergeText) {
+            ctx.font = `${Math.max(10, screenSize / 3)}px Arial`;
+            ctx.fillStyle = mergeText === 'Ready!' ? '#4ECDC4' : '#fff';
+            ctx.fillText(mergeText, screenPos.x, screenPos.y);
+          } else {
+            ctx.fillText(displayName, screenPos.x, screenPos.y);
+          }
+        }
+      } else {
+        ctx.fillText(displayName, screenPos.x, screenPos.y);
+      }
     }
   }
 }

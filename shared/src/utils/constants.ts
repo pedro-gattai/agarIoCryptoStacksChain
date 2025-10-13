@@ -1,5 +1,5 @@
 export const GAME_CONSTANTS = {
-  WORLD_SIZE: { width: 3000, height: 3000 },
+  WORLD_SIZE: { width: 4000, height: 4000 }, // FIXED: Synchronized with server (was 3000x3000)
   MAX_PLAYERS: 20,
   PELLETS_COUNT: 1000,
   GAME_DURATION: 300, // 5 minutes

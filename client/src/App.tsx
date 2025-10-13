@@ -65,9 +65,10 @@ function AppContent() {
 
       {appState === 'game' && (
         <>
-          <GameCanvas 
+          <GameCanvas
             className="main-game"
             isMultiplayer={true}
+            onReturnToLobby={onBackToLobby}
           />
           
           {/* Game controls using new ActionButton component */}

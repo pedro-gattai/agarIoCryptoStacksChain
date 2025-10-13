@@ -12,14 +12,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "shared": "file:../shared",
-    "socket.io-client": "^4.8.1",
+    "@stacks/auth": "^6.13.1",
     "@stacks/connect": "^7.10.0",
-    "@stacks/transactions": "^6.13.1",
     "@stacks/network": "^6.13.1",
-    "@stacks/auth": "^6.13.1"
+    "@stacks/transactions": "^6.13.1",
+    "lucide-react": "^0.545.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "shared": "file:../shared",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

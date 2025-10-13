@@ -70,15 +70,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         </div>
 
         <div className="game-over-actions">
-          <button 
-            className="game-over-btn respawn-btn"
-            onClick={onRespawn}
-          >
-            <span className="btn-icon">🔄</span>
-            Respawn
-          </button>
-          
-          <button 
+          <button
             className="game-over-btn lobby-btn"
             onClick={onReturnToLobby}
           >

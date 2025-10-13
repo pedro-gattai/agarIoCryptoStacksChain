@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import type { PlayerInput } from 'shared';
+import { Logger } from 'shared';
 
 export class SocketService {
   private socket: Socket | null = null;
@@ -8,6 +9,9 @@ export class SocketService {
   private inputSequence: number = 0;
   private connectionPromise: Promise<void> | null = null;
   private clientCount: number = 0;
+
+  // ADDED: Input buffer for server reconciliation
+  public pendingInputs: Map<number, PlayerInput> = new Map();
 
   connect(serverUrl: string = 'http://localhost:3000'): Promise<void> {
     // Return existing connection promise if already connecting
@@ -94,7 +98,7 @@ export class SocketService {
   registerClient(): string {
     this.clientCount++;
     const clientId = `client_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    console.log(`🔧 [SOCKET_SERVICE] Client registered: ${clientId}, total clients: ${this.clientCount}`);
+    // Log only removed to reduce noise
     return clientId;
   }
 
@@ -133,7 +137,7 @@ export class SocketService {
     }
     
     callbacks.add(callback);
-    console.log(`🔧 [SOCKET_SERVICE] Event '${event}' now has ${callbacks.size} listeners`);
+    // Log removed to reduce noise - use debugListeners() for debugging
   }
 
   off(event: string, callback?: Function): void {
@@ -165,14 +169,15 @@ export class SocketService {
 
   private emit(event: string, data: any): void {
     const callbacks = this.listeners.get(event) || new Set();
-    
-    if (callbacks.size === 0) {
-      console.log(`🔄 [SOCKET_SERVICE] No callbacks registered for event '${event}'`);
-      return;
+
+    if (callbacks.size === 0) return;
+
+    // Only log for critical events, not for game_update which happens 30x/sec
+    const shouldLog = !['game_update', 'global_room_stats'].includes(event);
+    if (shouldLog) {
+      console.log(`🔄 [SOCKET_SERVICE] Emitting '${event}' to ${callbacks.size} callbacks`);
     }
-    
-    console.log(`🔄 [SOCKET_SERVICE] Emitting '${event}' to ${callbacks.size} callbacks`);
-    
+
     callbacks.forEach((callback, index) => {
       try {
         callback(data);
@@ -201,7 +206,7 @@ export class SocketService {
     // Forward all other relevant events
     const events = [
       'rooms_list',
-      'room_created', 
+      'room_created',
       'room_joined',
       'new_room_available',
       'player_joined',
@@ -213,7 +218,7 @@ export class SocketService {
       'error',
       // Global room events
       'join_success',
-      'join_queued', 
+      'join_queued',
       'join_error',
       'global_room_stats',
       'initial_room_status',
@@ -221,12 +226,17 @@ export class SocketService {
       'queue_position_updated',
       'player_died',
       'player_respawned',
-      'room_status'
+      'you_died',
+      'room_status',
+      'split_merged'
     ];
 
     events.forEach(event => {
       this.socket!.on(event, (data) => {
-        console.log(`📡 [SOCKET_SERVICE] Received '${event}' from server:`, data);
+        // Only log non-game_update events (game_update happens 30x/sec)
+        if (event !== 'game_update') {
+          Logger.debug(`[SOCKET] ${event}`, data);
+        }
         this.emit(event, data);
       });
     });
@@ -248,23 +258,18 @@ export class SocketService {
   }
 
   joinGlobalRoom(walletAddress?: string): void {
-    console.log(`📤 [JOIN_GLOBAL_ROOM] Emitting join_global_room event`);
-    console.log(`📤 [JOIN_GLOBAL_ROOM] Wallet address: ${walletAddress}`);
-    console.log(`📤 [JOIN_GLOBAL_ROOM] Socket connected: ${this.isConnected}`);
-    console.log(`📤 [JOIN_GLOBAL_ROOM] Socket ID: ${this.socket?.id}`);
-    
     if (!this.socket) {
       console.error('❌ [JOIN_GLOBAL_ROOM] No socket available!');
       return;
     }
-    
+
     if (!this.isConnected) {
       console.error('❌ [JOIN_GLOBAL_ROOM] Socket not connected!');
       return;
     }
-    
+
+    console.log(`📤 [JOIN_GLOBAL_ROOM] Joining with wallet: ${walletAddress || 'none'}`);
     this.socket.emit('join_global_room', { walletAddress });
-    console.log(`✅ [JOIN_GLOBAL_ROOM] Event emitted successfully`);
   }
 
   // Game input
@@ -277,6 +282,15 @@ export class SocketService {
       mousePosition,
       actions
     };
+
+    // Store in pending inputs for reconciliation
+    this.pendingInputs.set(input.sequenceNumber!, input);
+
+    // Limit buffer size to prevent memory leak
+    if (this.pendingInputs.size > 100) {
+      const oldestKey = Array.from(this.pendingInputs.keys())[0];
+      this.pendingInputs.delete(oldestKey);
+    }
 
     this.socket.emit('player_input', input);
   }

@@ -74,7 +74,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       });
 
       socketService.on('global_room_stats', (stats: { playersOnline: number; maxPlayers: number; queueLength: number; uptime: number }) => {
-        console.log('📊 GameProvider: Global room stats update:', stats);
+        // Log removed to reduce noise - stats update frequently
       });
 
       socketService.on('initial_room_status', (status: any) => {

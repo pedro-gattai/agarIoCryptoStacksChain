@@ -4,6 +4,9 @@ import { Camera } from './Camera';
 import { CollisionSystem } from './CollisionSystem';
 import type { Vector2 } from '../utils/mathUtils';
 import { MathUtils } from '../utils/mathUtils';
+import { Logger, LogLevel } from 'shared';
+import { reconcilePlayerState } from '../utils/reconciliation';
+import { socketService } from '../services/socketService';
 
 export interface GameConfig {
   worldWidth: number;
@@ -26,10 +29,14 @@ export class GameEngine {
   private camera: Camera;
   private config: GameConfig;
   private state: GameState;
-  
+
   private mousePosition: Vector2 = { x: 0, y: 0 };
   private lastTime: number = 0;
   private animationFrameId: number | null = null;
+
+  // PHASE 5: Delta time for frame-rate independent movement
+  private lastFrameTime: number = performance.now();
+  private deltaTime: number = 0;
   
   // Multiplayer support
   private isMultiplayer: boolean = false;
@@ -353,17 +360,18 @@ export class GameEngine {
     }
   }
 
-  private update(_deltaTime: number): void {
+  private update(deltaTime: number): void {
     const localPlayer = this.getLocalPlayer();
-    
+
     // Update local player with mouse position
     if (localPlayer && localPlayer.isAlive) {
       const worldMousePos = this.camera.screenToWorld(this.mousePosition);
-      localPlayer.update(worldMousePos);
-      
+      // PHASE 5: Pass delta time for frame-rate independent movement
+      localPlayer.update(worldMousePos, deltaTime);
+
       // Update camera to follow local player
       this.camera.update(localPlayer.position, localPlayer.size);
-      
+
       // Send input to server if multiplayer
       if (this.isMultiplayer && this.onInputCallback) {
         const actions = [...this.inputBuffer];
@@ -375,7 +383,7 @@ export class GameEngine {
       this.camera.update();
     }
 
-    // Update all other players
+    // Update all other players (remote players use interpolation, don't need deltaTime)
     this.state.players.forEach(player => {
       if (player.id !== this.state.localPlayerId) {
         player.update();
@@ -412,10 +420,20 @@ export class GameEngine {
   }
 
   private render(): void {
-    // Enhanced debug render call every 60 frames (approx 1 second at 60fps)
+    // Debug logging removed to reduce console noise
+    // Uncomment for debugging:
+    // if (this.frameCount % 600 === 0) { // Log every 10 seconds
+    //   const localPlayer = this.getLocalPlayer();
+    //   console.log(`🎨 GameEngine: Render frame ${this.frameCount}`, {
+    //     players: this.state.players.length,
+    //     pellets: this.state.pellets.length,
+    //     localPlayerAlive: localPlayer?.isAlive
+    //   });
+    // }
     if (this.frameCount % 60 === 0) {
       const localPlayer = this.getLocalPlayer();
-      console.log(`🎨 GameEngine: Render frame ${this.frameCount}`, {
+      // Removed verbose logging - uncomment above for debugging
+      const _debugData = {
         players: this.state.players.length,
         alivePlayers: this.state.players.filter(p => p.isAlive).length,
         pellets: this.state.pellets.length,
@@ -434,7 +452,8 @@ export class GameEngine {
           isLocal: p.isLocalPlayer,
           isAlive: p.isAlive
         }))
-      });
+      };
+      void _debugData; // Prevent unused variable warning
     }
 
     // Clear canvas
@@ -447,11 +466,15 @@ export class GameEngine {
     // Draw world boundaries
     this.drawWorldBoundaries();
 
+    // IMPROVED: Draw connection lines between split cells
+    this.drawSplitCellConnections();
+
     // Get visible entities for performance
     const visiblePellets = this.state.pellets.filter(pellet =>
       pellet.isAlive && this.camera.isInView(pellet.position, pellet.size)
     );
 
+    // IMPROVED: Filter out dead players from rendering completely
     const visiblePlayers = this.state.players.filter(player =>
       player.isAlive && this.camera.isInView(player.position, player.size)
     );
@@ -462,6 +485,27 @@ export class GameEngine {
     });
 
     // Draw players (sorted by size, smaller ones first)
+    // Debug: Log split cell count occasionally
+    if (this.frameCount % 300 === 0) { // Every 5 seconds at 60fps
+      const splitCells = this.state.players.filter(p => (p as any).isSplitCell);
+      const splitCount = splitCells.length;
+      if (splitCount > 0) {
+        console.log(`🎨 [RENDER] ${splitCount} split cells in game state:`, splitCells.map(s => ({
+          id: s.id.substring(0, 25),
+          isAlive: s.isAlive,
+          position: `(${s.position.x.toFixed(0)}, ${s.position.y.toFixed(0)})`,
+          size: s.size.toFixed(1),
+          visible: this.camera.isInView(s.position, s.size)
+        })));
+      }
+    }
+
+    // DEBUGGING: Log split cells that should be rendered
+    const splitCellsToRender = visiblePlayers.filter(p => (p as any).isSplitCell);
+    if (splitCellsToRender.length > 0 && this.frameCount % 60 === 0) {
+      console.log(`🎨 [RENDER] Rendering ${splitCellsToRender.length} visible split cells`);
+    }
+
     visiblePlayers
       .sort((a, b) => a.size - b.size)
       .forEach(player => {
@@ -518,6 +562,46 @@ export class GameEngine {
       bottomRight.x - topLeft.x,
       bottomRight.y - topLeft.y
     );
+  }
+
+  private drawSplitCellConnections(): void {
+    // Find all cells belonging to the local player
+    const localPlayerId = this.state.localPlayerId;
+    if (!localPlayerId) return;
+
+    // Get all cells of the local player (parent + splits)
+    const playerCells = this.state.players.filter(p => {
+      if (p.id === localPlayerId) return true;
+      const isSplitCell = (p as any).isSplitCell;
+      const parentId = (p as any).parentPlayerId;
+      return isSplitCell && parentId === localPlayerId;
+    });
+
+    // Draw connection lines between cells
+    if (playerCells.length > 1) {
+      this.ctx.save();
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      this.ctx.lineWidth = 2;
+      this.ctx.setLineDash([5, 10]);
+
+      // Draw lines connecting all cells
+      for (let i = 0; i < playerCells.length; i++) {
+        for (let j = i + 1; j < playerCells.length; j++) {
+          const cell1 = playerCells[i];
+          const cell2 = playerCells[j];
+
+          const pos1 = this.camera.worldToScreen(cell1.position);
+          const pos2 = this.camera.worldToScreen(cell2.position);
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(pos1.x, pos1.y);
+          this.ctx.lineTo(pos2.x, pos2.y);
+          this.ctx.stroke();
+        }
+      }
+
+      this.ctx.restore();
+    }
   }
 
   private renderVisualEffects(): void {
@@ -681,14 +765,14 @@ export class GameEngine {
     localPlayer.score = Math.max(0, Math.floor(localPlayer.score * 0.9)); // Keep 90% of score
     localPlayer.isAlive = true;
 
-    // Reset position to center of world
+    // Reset position to center of world (2000, 2000 for 4000x4000 world)
     localPlayer.position = {
       x: this.config.worldWidth / 2,
       y: this.config.worldHeight / 2
     };
 
-    // Reset camera to follow player
-    this.camera.setTarget(localPlayer);
+    // FIXED: Removed invalid camera.setTarget() - camera.update() handles following in game loop
+    // Camera will automatically follow player on next update() call
 
     console.log(`🔄 Local player respawned at (${localPlayer.position.x}, ${localPlayer.position.y})`);
   }
@@ -714,10 +798,20 @@ export class GameEngine {
 
     // Mark local player as dead
     localPlayer.isAlive = false;
-    
+
     console.log(`💀 LOCAL PLAYER DIED! Killed by: ${deathData.killedBy}`);
-    
+
     // The GameCanvas component will detect this and show the game over modal
+  }
+
+  // IMPROVED: Handle split cell merge event
+  handleSplitMerge(data: { splitCellId: string; parentId: string; timestamp: number }): void {
+    // Remove the split cell from the game state
+    const splitIndex = this.state.players.findIndex(p => p.id === data.splitCellId);
+    if (splitIndex !== -1) {
+      this.state.players.splice(splitIndex, 1);
+      console.log(`🔄 Split cell ${data.splitCellId} merged back to parent ${data.parentId}`);
+    }
   }
 
   private addDeathNotification(deathData: any): void {
@@ -729,12 +823,18 @@ export class GameEngine {
 
   // Multiplayer synchronization methods
   updateFromServer(serverUpdate: {
+    timestamp?: number; // Server timestamp
+    isDelta?: boolean; // PHASE 7: Delta compression flag
     players: Array<{
       id: string;
       position: Vector2;
       size?: number;
       color?: string;
       score?: number;
+      lastProcessedInput?: number; // PHASE 2: For reconciliation
+      isAlive?: boolean;
+      isSplitCell?: boolean;
+      parentPlayerId?: string;
     }>;
     gameState?: {
       pellets: Array<{
@@ -749,100 +849,170 @@ export class GameEngine {
 
     const pelletsCount = serverUpdate.gameState?.pellets?.length || 0;
     const humanPlayers = serverUpdate.players.filter(p => !p.id.includes('bot_'));
-    
+
     // Server update logging disabled to reduce debug spam
 
     // Human player debug logging disabled to reduce spam
 
+    // PHASE 7: Handle delta updates (only changed data) vs full updates
+    const isDelta = serverUpdate.isDelta || false;
+
+    // Log split cells received from server for debugging
+    const splitCells = serverUpdate.players.filter(p => p.isSplitCell);
+    if (splitCells.length > 0) {
+      console.log(`📡 [GameEngine] Received ${splitCells.length} split cells from server (isDelta: ${isDelta}):`,
+        splitCells.map(s => ({
+          id: s.id.substring(0, 25),
+          parentId: s.parentPlayerId,
+          size: s.size,
+          color: s.color,
+          isAlive: s.isAlive,
+          position: `(${s.position.x.toFixed(0)}, ${s.position.y.toFixed(0)})`
+        }))
+      );
+    }
+
     // Update players from server data
     serverUpdate.players.forEach(serverPlayer => {
       const existingPlayer = this.state.players.find(p => p.id === serverPlayer.id);
-      
-      // Debug: Log player data for human players
-      if (!serverPlayer.id.includes('bot_')) {
-        console.log(`👤 CLIENT: Processing human player ${serverPlayer.id}, size: ${serverPlayer.size}, score: ${serverPlayer.score}`);
-      }
-      
+
       if (existingPlayer) {
-        // Debug: Check if this is the local player
-        if (!serverPlayer.id.includes('bot_')) {
-          console.log(`🔍 Found existing human player: ${existingPlayer.id}, isLocal: ${existingPlayer.isLocalPlayer}, localPlayerId: ${this.state.localPlayerId}`);
-        }
-        
         // Update existing player (except local player position - client prediction)
         if (!existingPlayer.isLocalPlayer) {
-          existingPlayer.setTargetPosition(serverPlayer.position);
-          if (serverPlayer.size !== undefined) {
-            existingPlayer.size = serverPlayer.size;
-            existingPlayer.mass = serverPlayer.size * serverPlayer.size / 100; // Approximate
+          // PHASE 3: Add server state to interpolation buffer
+          if (serverPlayer.position && serverPlayer.size !== undefined && serverUpdate.timestamp) {
+            existingPlayer.addServerState(
+              serverPlayer.position,
+              serverPlayer.size,
+              serverUpdate.timestamp
+            );
           }
+
+          // Update score (immediate, no interpolation needed)
           if (serverPlayer.score !== undefined) {
             existingPlayer.score = serverPlayer.score;
           }
+
+          // Update isAlive status (server authoritative)
+          if ((serverPlayer as any).isAlive !== undefined) {
+            existingPlayer.isAlive = (serverPlayer as any).isAlive;
+          }
         } else {
-          // For local player, only update non-position data
-          const oldScore = existingPlayer.score;
-          const oldSize = existingPlayer.size;
-          
-          console.log(`🎯 LOCAL PLAYER UPDATE START:`, {
-            playerId: existingPlayer.id,
-            currentScore: oldScore,
-            serverScore: serverPlayer.score,
-            currentSize: oldSize,
-            serverSize: serverPlayer.size,
-            isLocal: existingPlayer.isLocalPlayer
-          });
-          
+          // For local player: server reconciliation
+          if (serverPlayer.lastProcessedInput !== undefined) {
+            reconcilePlayerState(
+              existingPlayer,
+              {
+                serverPosition: serverPlayer.position,
+                lastProcessedInput: serverPlayer.lastProcessedInput
+              },
+              socketService.pendingInputs
+            );
+          }
+
+          // Update size/score (server authoritative)
           if (serverPlayer.size !== undefined) {
             existingPlayer.size = serverPlayer.size;
             existingPlayer.mass = serverPlayer.size * serverPlayer.size / 100;
-            console.log(`📏 LOCAL PLAYER SIZE: ${oldSize} → ${serverPlayer.size}`);
           }
-          
+
           if (serverPlayer.score !== undefined) {
+            const oldScore = existingPlayer.score;
             existingPlayer.score = serverPlayer.score;
-            console.log(`💯 LOCAL PLAYER SCORE: ${oldScore} → ${serverPlayer.score}`);
-            
+
             if (oldScore !== serverPlayer.score) {
-              console.log(`🔄 SCORE CHANGED! From ${oldScore} to ${serverPlayer.score} (diff: ${serverPlayer.score - oldScore})`);
+              Logger.debug(`Score: ${oldScore} → ${serverPlayer.score}`);
             }
           }
-          
-          console.log(`🎯 LOCAL PLAYER UPDATE END:`, {
-            finalScore: existingPlayer.score,
-            finalSize: existingPlayer.size,
-            applied: true
-          });
+
+          // CRITICAL FIX: ALWAYS update isAlive status (server authoritative, can override client death)
+          if (serverPlayer.isAlive !== undefined) {
+            const wasAlive = existingPlayer.isAlive;
+            existingPlayer.isAlive = serverPlayer.isAlive;
+
+            // Log state changes for local player to debug death/respawn
+            if (existingPlayer.isLocalPlayer && wasAlive !== serverPlayer.isAlive) {
+              console.log(`🔄 [GameEngine] Local player isAlive changed: ${wasAlive} → ${serverPlayer.isAlive}`);
+            }
+          }
         }
       } else {
         // Add new player
+        // Check if this is a split cell from the local player
+        const isSplitCell = serverPlayer.isSplitCell || false;
+        const parentPlayerId = serverPlayer.parentPlayerId;
+        const isOwnSplitCell = isSplitCell && parentPlayerId === this.state.localPlayerId;
+
+        // IMPROVED: Always use color from server for consistency
+        let playerColor = serverPlayer.color;
+        if (!playerColor) {
+          // Fallback only if server didn't provide color (shouldn't happen)
+          playerColor = '#4ECDC4';
+          console.warn(`No color received from server for player ${serverPlayer.id}`);
+        }
+
+        // FIXED: Don't mark split cells as local (causes control conflicts)
+        // Server will control split cell movement, we just render with same color as parent
         const newPlayer = new Player(
           serverPlayer.id,
           serverPlayer.position,
-          serverPlayer.color || MathUtils.randomColor(),
-          false
+          playerColor,
+          false // Never mark split cells as local player
         );
         if (serverPlayer.size) newPlayer.size = serverPlayer.size;
         if (serverPlayer.score) newPlayer.score = serverPlayer.score;
+
+        // CRITICAL: Always set isAlive, defaulting to true for new players/split cells
+        newPlayer.isAlive = serverPlayer.isAlive !== undefined ? serverPlayer.isAlive : true;
+
+        // Mark as split cell for rendering purposes
+        (newPlayer as any).isSplitCell = isSplitCell;
+        (newPlayer as any).parentPlayerId = parentPlayerId;
+        (newPlayer as any).canMergeAt = serverPlayer.canMergeAt;
+
         this.state.players.push(newPlayer);
+
+        if (isSplitCell) {
+          console.log(`🔀 [GameEngine] Split cell created:`, {
+            id: serverPlayer.id,
+            parentPlayerId,
+            isAlive: newPlayer.isAlive,
+            size: newPlayer.size,
+            position: newPlayer.position,
+            color: playerColor,
+            isLocalPlayerSplit: isOwnSplitCell,
+            localPlayerId: this.state.localPlayerId,
+            totalPlayers: this.state.players.length
+          });
+
+          // DEBUGGING: Verify split cell was added to state
+          const addedSplitCell = this.state.players.find(p => p.id === serverPlayer.id);
+          if (addedSplitCell) {
+            console.log(`✅ [GameEngine] Split cell ${serverPlayer.id} successfully added to game state`);
+          } else {
+            console.error(`❌ [GameEngine] Split cell ${serverPlayer.id} NOT found in game state after adding!`);
+          }
+        }
       }
     });
 
-    // Remove players not in server update (but preserve local player if missing from server)
-    const serverPlayerIds = serverUpdate.players.map(p => p.id);
-    this.state.players = this.state.players.filter(player => {
-      const shouldKeep = serverPlayerIds.includes(player.id);
-      
-      // Always preserve the local player, even if not in server update
-      if (player.isLocalPlayer && !shouldKeep) {
-        console.log(`🛡️ GameEngine: Preserving local player ${player.id} not found in server update`);
-        return true;
-      }
-      
-      return shouldKeep;
-    });
+    // PHASE 7: Only remove players on full updates, not delta updates
+    if (!isDelta) {
+      const serverPlayerIds = serverUpdate.players.map(p => p.id);
+      this.state.players = this.state.players.filter(player => {
+        const shouldKeep = serverPlayerIds.includes(player.id);
 
-    // Update pellets if provided
+        // Always preserve the local player, even if not in server update
+        if (player.isLocalPlayer && !shouldKeep) {
+          console.log(`🛡️ GameEngine: Preserving local player ${player.id} not found in server update`);
+          return true;
+        }
+
+        return shouldKeep;
+      });
+    }
+
+    // Update pellets if provided (from both full and delta updates)
     if (serverUpdate.gameState?.pellets) {
       const oldPelletCount = this.state.pellets.length;
       const newPelletCount = serverUpdate.gameState.pellets.length;

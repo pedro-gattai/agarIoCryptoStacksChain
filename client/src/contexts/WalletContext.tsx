@@ -9,6 +9,8 @@ export interface StacksWallet {
   icon: string;
   available: boolean;
   installed: boolean;
+  publicKey?: string;
+  readyState?: 'Installed' | 'NotDetected' | 'Loadable' | 'Unsupported';
 }
 
 interface WalletContextType {
@@ -19,10 +21,17 @@ interface WalletContextType {
   stxAddress: string | null;
   balance: number;
   network: string;
-  
+
+  // Compatibility aliases for Solana-style properties
+  connected: boolean; // alias for isSignedIn
+  publicKey: string | null; // alias for stxAddress
+  wallet: StacksWallet | null;
+  wallets: StacksWallet[];
+
   // Actions
   connect: () => void;
   disconnect: () => void;
+  select: (walletName: string) => void;
   sendSTX: (recipient: string, amount: number, memo?: string) => Promise<string>;
   refreshBalance: () => Promise<void>;
 }
@@ -39,8 +48,8 @@ interface WalletProviderProps {
 const appConfig = new AppConfig(['store_write', 'publish_data']);
 const userSession = new UserSession({ appConfig });
 
-export const WalletProvider: React.FC<WalletProviderProps> = ({ 
-  children, 
+export const WalletProvider: React.FC<WalletProviderProps> = ({
+  children,
   autoConnect = false,
   network = 'testnet'
 }) => {
@@ -52,6 +61,17 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
 
   const isSignedIn = currentUserSession?.isUserSignedIn() || false;
   const stxAddress = userData?.profile?.stxAddress?.testnet || null;
+
+  // Available Stacks wallets (Hiro, Xverse, Leather)
+  const availableWallets: StacksWallet[] = [
+    { name: 'Hiro Wallet', icon: 'hiro', available: true, installed: true, readyState: 'Installed' },
+    { name: 'Xverse', icon: 'xverse', available: true, installed: true, readyState: 'Installed' },
+    { name: 'Leather', icon: 'leather', available: true, installed: true, readyState: 'Installed' },
+  ];
+
+  const currentWallet: StacksWallet | null = isSignedIn
+    ? { name: 'Hiro Wallet', icon: 'hiro', available: true, installed: true, publicKey: stxAddress || undefined, readyState: 'Installed' }
+    : null;
 
   useEffect(() => {
     // Check if user is already signed in
@@ -173,6 +193,11 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
     }
   };
 
+  const selectWallet = (walletName: string) => {
+    // For Stacks, wallet selection is handled by the Stacks Connect UI
+    console.log('Wallet selection:', walletName);
+  };
+
   const value: WalletContextType = {
     userSession: currentUserSession,
     userData,
@@ -181,8 +206,15 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
     stxAddress,
     balance,
     network,
+    // Compatibility aliases
+    connected: isSignedIn,
+    publicKey: stxAddress,
+    wallet: currentWallet,
+    wallets: availableWallets,
+    // Actions
     connect,
     disconnect: disconnectWallet,
+    select: selectWallet,
     sendSTX,
     refreshBalance
   };

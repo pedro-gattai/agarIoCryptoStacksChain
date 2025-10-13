@@ -53,7 +53,7 @@
   font-size: 3rem;
   font-weight: 800;
   margin: 0 0 10px 0;
-  background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+  background: linear-gradient(45deg, #fc6432, #5546FF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -67,7 +67,7 @@
 }
 
 .killer-name {
-  color: #ff6b6b;
+  color: #fc6432;
   font-weight: 600;
 }
 
@@ -101,7 +101,7 @@
 
 .stat-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(78, 205, 196, 0.15);
+  box-shadow: 0 8px 25px rgba(252, 100, 50, 0.15);
 }
 
 .stat-item.large {
@@ -121,13 +121,13 @@
 .stat-value {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #4ecdc4;
+  color: #fc6432;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .stat-item.large .stat-value {
   font-size: 2.5rem;
-  background: linear-gradient(45deg, #4ecdc4, #44a08d);
+  background: linear-gradient(45deg, #fc6432, #F7931A);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -141,7 +141,7 @@
 }
 
 .game-over-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #5546FF 0%, #4435DD 100%);
   border: none;
   border-radius: 12px;
   padding: 15px 25px;
@@ -155,21 +155,21 @@
   gap: 8px;
   min-width: 140px;
   justify-content: center;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 15px rgba(85, 70, 255, 0.3);
 }
 
 .game-over-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(85, 70, 255, 0.4);
 }
 
 .respawn-btn {
-  background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
-  box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+  background: linear-gradient(135deg, #fc6432 0%, #F7931A 100%);
+  box-shadow: 0 4px 15px rgba(252, 100, 50, 0.3);
 }
 
 .respawn-btn:hover {
-  box-shadow: 0 8px 25px rgba(78, 205, 196, 0.4);
+  box-shadow: 0 8px 25px rgba(252, 100, 50, 0.4);
 }
 
 .lobby-btn {

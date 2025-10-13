@@ -1,4 +1,4 @@
-import type { PlayerInput } from './player';
+import type { PlayerInput } from './player.js';
 
 export interface GameState {
   id: string;
@@ -94,6 +94,11 @@ export interface PlayerConnection {
   respawnTime?: number;
   isBot?: boolean;
   botAI?: BotAI;
+
+  // ADDED: Network optimization fields
+  lastProcessedInputSeq?: number; // Last input sequence processed by server
+  lastBroadcast?: number; // Timestamp of last broadcast (for adaptive rate)
+  lastPosition?: Position; // Previous position (for movement detection)
 }
 
 // Bot AI
@@ -114,6 +119,10 @@ export interface GameUpdate {
     size?: number;
     color?: string;
     score?: number;
+    lastProcessedInput?: number; // ADDED: For server reconciliation
+    isAlive?: boolean;
+    isBot?: boolean;
+    mass?: number;
   }>;
   gameState: {
     pellets: Array<{
@@ -122,6 +131,8 @@ export interface GameUpdate {
       size: number;
       color: string;
     }>;
+    totalPlayers?: number;
+    alivePlayers?: number;
   };
 }
 

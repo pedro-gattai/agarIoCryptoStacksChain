@@ -6,8 +6,14 @@ import dotenv from 'dotenv';
 import { GameService } from './services/GameService';
 import { StatsService } from './services/StatsService';
 import { setupGlobalGameSocket } from './sockets/globalGameSocket';
+import { Logger, LogLevel } from 'shared';
 
 dotenv.config();
+
+// Configure Logger based on environment
+const isDevelopment = process.env.NODE_ENV !== 'production';
+Logger.setLevel(isDevelopment ? LogLevel.INFO : LogLevel.WARN);
+Logger.setPrefix('[SERVER] ');
 
 // Import BlockchainService conditionally for demo mode
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
@@ -20,7 +26,8 @@ const io = new Server(httpServer, {
       process.env.CLIENT_URL || "http://localhost:5173",
       "http://localhost:5174", // For when port 5173 is in use
       "http://localhost:5175", // For when port 5174 is in use
-      "http://localhost:5176"  // For when port 5175 is in use
+      "http://localhost:5176", // For when port 5175 is in use
+      "http://localhost:5177"  // For when port 5176 is in use
     ],
     methods: ["GET", "POST"]
   }

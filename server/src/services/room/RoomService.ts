@@ -1,17 +1,24 @@
 import type { GlobalGameRoom, PlayerConnection, Position } from 'shared';
 import { GameService } from '../GameService';
+import type { Server } from 'socket.io';
 
 export class RoomService {
   private globalRoom!: GlobalGameRoom;
   private playerToSocket: Map<string, any> = new Map();
   private gameService: GameService;
-  
+  private io: Server | null = null; // ADDED: Socket.IO server for broadcasting
+
   private readonly MAX_PLAYERS = 100;
   private readonly WORLD_SIZE = 4000;
   private readonly DEFAULT_ENTRY_FEE = 0.01;
 
   constructor(gameService: GameService) {
     this.gameService = gameService;
+  }
+
+  // ADDED: Set Socket.IO server for broadcasting
+  public setSocketIO(io: Server): void {
+    this.io = io;
   }
 
   public async initializeGlobalRoom(): Promise<void> {
@@ -39,9 +46,25 @@ export class RoomService {
 
   public addPlayerToRoom(player: PlayerConnection, socket: any): void {
     this.globalRoom.players.set(player.playerId, player);
-    this.playerToSocket.set(player.playerId, socket);
+    if (socket) {
+      this.playerToSocket.set(player.playerId, socket);
+    }
     this.globalRoom.currentPlayers = this.globalRoom.players.size;
     this.globalRoom.lastActivity = new Date();
+
+    // FIXED: Broadcast to ALL clients when ANY player joins (human or bot)
+    // This ensures all clients see new players immediately
+    if (this.io) {
+      const roomStats = this.getRoomStats();
+      this.io.emit('player_joined', {
+        playerId: player.playerId,
+        playersOnline: roomStats.realPlayers,
+        playerPosition: player.position,
+        isBot: player.isBot || false
+      });
+
+      console.log(`📡 RoomService: Broadcasted player_joined for ${player.playerId} (isBot: ${player.isBot || false})`);
+    }
   }
 
   public removePlayerFromRoom(playerId: string): PlayerConnection | undefined {
@@ -89,9 +112,15 @@ export class RoomService {
   }
 
   public generateRandomPosition(): Position {
+    // FIXED: Spawn in central area (1500-2500) instead of entire world (0-4000)
+    // This ensures players spawn near each other and can see each other immediately
+    const SPAWN_ZONE_MIN = 1500;
+    const SPAWN_ZONE_MAX = 2500;
+    const range = SPAWN_ZONE_MAX - SPAWN_ZONE_MIN;
+
     return {
-      x: Math.random() * this.WORLD_SIZE,
-      y: Math.random() * this.WORLD_SIZE
+      x: SPAWN_ZONE_MIN + Math.random() * range,
+      y: SPAWN_ZONE_MIN + Math.random() * range
     };
   }
 

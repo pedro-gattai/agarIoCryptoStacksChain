@@ -50,19 +50,22 @@ export class GlobalRoomManager {
 
   public async initialize(): Promise<void> {
     console.log('🌍 [GLOBAL_ROOM_MANAGER] Initializing...');
-    
+
     try {
+      // FIXED: Set Socket.IO reference in RoomService for broadcasting
+      this.roomService.setSocketIO(this.io);
+
       // Initialize room
       await this.roomService.initializeGlobalRoom();
-      
+
       // Start services
       this.startGameLoop();
       this.startBotManagement();
       this.startQueueProcessor();
       this.startBroadcastStats();
-      
+
       console.log('✅ [GLOBAL_ROOM_MANAGER] Initialized successfully');
-      
+
     } catch (error) {
       console.error('❌ [GLOBAL_ROOM_MANAGER] Failed to initialize:', error);
       throw error;
@@ -75,7 +78,20 @@ export class GlobalRoomManager {
     try {
       console.log(`🌐 [JOIN_GLOBAL_ROOM] Player ${playerId} requesting to join with wallet: ${data.walletAddress}`);
       
-      // Create player connection
+      // IMPROVED: Generate consistent color and name for the player
+      const playerColors = [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+        '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52D726',
+        '#FF4757', '#5F27CD', '#00D2D3', '#FFC312', '#C4E538',
+        '#12CBC4', '#FDA7DF', '#ED4C67', '#F79F1F', '#A3CB38'
+      ];
+      const playerColor = playerColors[Math.floor(Math.random() * playerColors.length)];
+      const playerNumber = Math.floor(Math.random() * 9999) + 1;
+      const playerName = data.walletAddress ?
+        `Player${data.walletAddress.slice(-4)}` :
+        `Player${playerNumber}`;
+
+      // Create player connection with color and name
       const playerConnection: PlayerConnection = {
         socketId: socket.id,
         playerId,
@@ -86,8 +102,11 @@ export class GlobalRoomManager {
         position: this.roomService.generateRandomPosition(),
         inputBuffer: [],
         joinedAt: new Date(),
-        isBot: false
-      };
+        isBot: false,
+        // ADDED: Store color and name on the server
+        color: playerColor,
+        name: playerName
+      } as any;
 
       // Try to add player directly or queue them
       if (!this.roomService.isRoomFull()) {
@@ -146,22 +165,32 @@ export class GlobalRoomManager {
 
   public handlePlayerLeave(socket: Socket): void {
     const playerId = socket.id;
-    
+
     try {
       // Remove from room if present
       const removedPlayer = this.roomService.removePlayerFromRoom(playerId);
-      
+
       if (removedPlayer) {
         const roomStats = this.roomService.getRoomStats();
         console.log(`👋 Player ${playerId} left global room (${roomStats.realPlayers}/${roomStats.maxPlayers})`);
-        
+
+        // FIXED: Broadcast to ALL clients that a player left
+        // This ensures other clients remove the player from their game
+        this.io.emit('player_left', {
+          playerId: playerId,
+          playersOnline: roomStats.realPlayers,
+          isBot: removedPlayer.isBot || false
+        });
+
+        console.log(`📡 Broadcasted player_left event for ${playerId} to all clients`);
+
         // Process queue to fill the spot
         this.processQueue();
       }
-      
+
       // Remove from queue if present
       this.queueService.removePlayerFromQueue(playerId);
-      
+
     } catch (error) {
       console.error(`❌ Error handling player leave for ${playerId}:`, error);
     }
@@ -188,8 +217,10 @@ export class GlobalRoomManager {
   }
 
   private addPlayerToRoom(player: PlayerConnection, socket: Socket): void {
+    // FIXED: RoomService now handles broadcasting internally
+    // This ensures broadcast happens for ALL players (humans and bots)
     this.roomService.addPlayerToRoom(player, socket);
-    
+
     const roomStats = this.roomService.getRoomStats();
     console.log(`👤 Player ${player.playerId} joined global room (${roomStats.realPlayers}/${roomStats.maxPlayers})`);
   }
@@ -319,5 +350,47 @@ export class GlobalRoomManager {
 
   public getGlobalRoom(): GlobalGameRoom {
     return this.roomService.getGlobalRoom();
+  }
+
+  public respawnPlayer(playerId: string): void {
+    try {
+      const globalRoom = this.roomService.getGlobalRoom();
+      const player = globalRoom.players.get(playerId);
+
+      if (!player) {
+        console.log(`⚠️ Player ${playerId} not found for respawn`);
+        return;
+      }
+
+      // Use asGamePlayer to properly type the player
+      const { asGamePlayer, GAMEPLAY_CONSTANTS } = require('shared');
+      const gamePlayer = asGamePlayer(player);
+
+      // Reset player stats
+      gamePlayer.size = GAMEPLAY_CONSTANTS.PLAYER.INITIAL_SIZE;
+      gamePlayer.mass = (gamePlayer.size * gamePlayer.size) / 100;
+      gamePlayer.score = Math.max(0, Math.floor(gamePlayer.score * 0.9)); // Keep 90% of score
+      gamePlayer.isAlive = true;
+      gamePlayer.deathTime = undefined;
+      gamePlayer.killedBy = undefined;
+
+      // Generate safe spawn position
+      player.position = this.roomService.generateRandomPosition();
+
+      console.log(`🔄 [RESPAWN] Player ${playerId} respawned at (${Math.floor(player.position.x)}, ${Math.floor(player.position.y)})`);
+      console.log(`🔄 [RESPAWN] Stats: size=${gamePlayer.size}, score=${gamePlayer.score}, isAlive=${gamePlayer.isAlive}`);
+
+      // Notify the player that respawn is complete
+      const socket = this.roomService.getPlayerSocket(playerId);
+      if (socket) {
+        socket.emit('respawn_complete', {
+          position: player.position,
+          size: gamePlayer.size,
+          score: gamePlayer.score
+        });
+      }
+    } catch (error) {
+      console.error(`❌ Error respawning player ${playerId}:`, error);
+    }
   }
 }

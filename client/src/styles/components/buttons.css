@@ -60,7 +60,7 @@
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #e55656;
+  background-color: #e55555;
 }
 
 .btn-success {
@@ -69,7 +69,7 @@
 }
 
 .btn-success:hover:not(:disabled) {
-  background-color: #47b83c;
+  background-color: #48b93d;
 }
 
 /* Button States */

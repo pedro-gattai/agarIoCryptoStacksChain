@@ -1,9 +1,9 @@
 /* Interactive Roadmap Styles */
 .roadmap-section {
   padding: 100px 0;
-  background: 
-    radial-gradient(ellipse at top right, rgba(255, 0, 136, 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom left, rgba(0, 255, 136, 0.03) 0%, transparent 50%),
+  background:
+    radial-gradient(ellipse at top right, rgba(252, 100, 50, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom left, rgba(85, 70, 255, 0.05) 0%, transparent 50%),
     linear-gradient(135deg, #0a0a0f 0%, #16213e 100%);
 }
 
@@ -26,10 +26,11 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: linear-gradient(180deg, 
-    transparent 0%, 
-    rgba(0, 255, 136, 0.3) 10%, 
-    rgba(0, 255, 136, 0.3) 90%, 
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(252, 100, 50, 0.4) 10%,
+    rgba(247, 147, 26, 0.4) 50%,
+    rgba(85, 70, 255, 0.4) 90%,
     transparent 100%);
   transform: translateX(-50%);
   z-index: 1;
@@ -110,7 +111,7 @@
 
 .roadmap-item.selected .node-circle {
   transform: scale(1.1);
-  box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+  box-shadow: 0 0 30px rgba(252, 100, 50, 0.6);
 }
 
 .node-icon {
@@ -136,7 +137,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(252, 100, 50, 0.15), transparent);
   transition: left 0.7s;
 }
 
@@ -148,8 +149,8 @@
 .roadmap-item:hover .roadmap-content,
 .roadmap-item.selected .roadmap-content {
   transform: translateY(-5px);
-  border-color: rgba(0, 255, 136, 0.3);
-  box-shadow: 0 15px 30px rgba(0, 255, 136, 0.1);
+  border-color: rgba(252, 100, 50, 0.4);
+  box-shadow: 0 15px 30px rgba(252, 100, 50, 0.2);
 }
 
 .roadmap-header {
@@ -171,14 +172,15 @@
 }
 
 .roadmap-phase {
-  background: linear-gradient(135deg, #00ff88 0%, #00ccff 100%);
-  color: #000;
+  background: linear-gradient(135deg, #fc6432 0%, #F7931A 50%, #5546FF 100%);
+  color: #fff;
   font-size: 0.8rem;
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .roadmap-quarter {
@@ -267,7 +269,7 @@
 }
 
 .roadmap-details h4 {
-  color: #00ff88;
+  color: #fc6432;
   font-size: 1.1rem;
   font-weight: 700;
   margin-bottom: 12px;
@@ -327,14 +329,14 @@
 
 .roadmap-stats .stat-card:hover {
   transform: translateY(-5px);
-  border-color: rgba(0, 255, 136, 0.3);
-  box-shadow: 0 15px 30px rgba(0, 255, 136, 0.1);
+  border-color: rgba(252, 100, 50, 0.4);
+  box-shadow: 0 15px 30px rgba(252, 100, 50, 0.2);
 }
 
 .roadmap-stats .stat-number {
   font-size: 2.5rem;
   font-weight: 800;
-  color: #00ff88;
+  color: #fc6432;
   margin-bottom: 8px;
   display: block;
 }
@@ -351,8 +353,8 @@
 .roadmap-cta {
   margin-top: 80px;
   text-align: center;
-  background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 204, 255, 0.1) 100%);
-  border: 1px solid rgba(0, 255, 136, 0.2);
+  background: linear-gradient(135deg, rgba(252, 100, 50, 0.1) 0%, rgba(85, 70, 255, 0.1) 100%);
+  border: 1px solid rgba(252, 100, 50, 0.3);
   border-radius: 24px;
   padding: 60px 40px;
   position: relative;
@@ -366,7 +368,7 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(0, 255, 136, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(252, 100, 50, 0.15) 0%, transparent 70%);
   animation: rotate 10s linear infinite;
 }
 
@@ -416,24 +418,26 @@
 }
 
 .cta-primary {
-  background: linear-gradient(135deg, #00ff88 0%, #00ccff 100%);
-  color: #000;
+  background: linear-gradient(135deg, #fc6432 0%, #F7931A 50%, #5546FF 100%);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .cta-primary:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 25px rgba(0, 255, 136, 0.3);
+  box-shadow: 0 10px 25px rgba(252, 100, 50, 0.4);
 }
 
 .cta-secondary {
   background: transparent;
   color: #fff;
-  border: 2px solid #00ff88;
+  border: 2px solid #fc6432;
 }
 
 .cta-secondary:hover {
-  background: rgba(0, 255, 136, 0.1);
+  background: rgba(252, 100, 50, 0.15);
   transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(252, 100, 50, 0.2);
 }
 
 /* Responsive */

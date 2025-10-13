@@ -12,11 +12,12 @@ import '../styles/GameOverModal.css';
 interface GameCanvasProps {
   className?: string;
   isMultiplayer?: boolean;
+  onReturnToLobby?: () => void;
 }
 
 const DEFAULT_CONFIG: GameConfig = {
-  worldWidth: 3000,
-  worldHeight: 3000,
+  worldWidth: 4000,  // FIXED: Synchronized with server (was 3000)
+  worldHeight: 4000, // FIXED: Synchronized with server (was 3000)
   pelletsCount: 1000,
   maxPlayers: 20
 };
@@ -24,9 +25,10 @@ const DEFAULT_CONFIG: GameConfig = {
 // Simple canvas ID generator for debugging purposes only
 let canvasIdCounter = 0;
 
-export const GameCanvas: React.FC<GameCanvasProps> = ({ 
+export const GameCanvas: React.FC<GameCanvasProps> = ({
   className = '',
-  isMultiplayer = false 
+  isMultiplayer = false,
+  onReturnToLobby
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -217,54 +219,76 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Game Over handlers
   const handleRespawn = () => {
     setIsGameOver(false);
-    
-    // Reset game state
+
+    // FIXED: Notify server about respawn request (use correct event name)
+    socketService.emit('request_respawn', {});
+
+    // Reset local game state
     const gameEngine = gameEngineManager.getGameEngine();
     if (gameEngine) {
-      // Respawn the local player
-      gameEngine.respawnLocalPlayer();
+      // Mark local player as alive (server will confirm with next update)
+      const localPlayer = gameEngine.getLocalPlayer();
+      if (localPlayer) {
+        localPlayer.isAlive = true;
+      }
     }
-    
-    console.log('🔄 Player respawned');
+
+    console.log('🔄 Respawn requested, waiting for server confirmation');
   };
 
   const handleReturnToLobby = () => {
     setIsGameOver(false);
-    
-    // Navigate back to main menu or lobby
-    window.location.href = '/';
-    
+
+    // Emit leave_game event to properly clean up on server
+    socketService.emit('leave_game', {
+      playerId: socketService.getSocket()?.id
+    });
+
+    // Use navigation handler to return to lobby without page reload
+    if (onReturnToLobby) {
+      onReturnToLobby();
+    } else {
+      // Fallback to page reload if no handler provided
+      window.location.href = '/';
+    }
+
     console.log('🏠 Returning to lobby');
   };
 
-  // Listen for player death events
+  // Listen for player death and respawn events
   useEffect(() => {
     const gameEngine = gameEngineManager.getGameEngine();
     if (!gameEngine) return;
 
-    // Check for player death periodically
+    // Check for player death/respawn with faster interval for better responsiveness
     const deathCheckInterval = setInterval(() => {
       const gameState = gameEngine.getGameState();
       if (!gameState) return;
 
       const socketId = socketService.getSocket()?.id;
       const localPlayerData = gameState.players.find(p => p.id === socketId || p.isLocalPlayer);
-      
-      if (localPlayerData && !localPlayerData.isAlive && !isGameOver) {
-        // Player died, show game over modal
-        const playerRank = leaderboard.findIndex(p => p.id === localPlayerData.id) + 1;
-        
-        setGameOverData({
-          finalScore: localPlayerData.score || 0,
-          survivalTime: gameState.gameTime,
-          rank: playerRank > 0 ? playerRank : leaderboard.length + 1,
-          killedBy: (localPlayerData as any).killedBy || undefined
-        });
-        setIsGameOver(true);
-        
-        console.log('💀 Player died, showing game over modal');
+
+      if (localPlayerData) {
+        if (!localPlayerData.isAlive && !isGameOver) {
+          // Player died, show game over modal immediately
+          const playerRank = leaderboard.findIndex(p => p.id === localPlayerData.id) + 1;
+
+          setGameOverData({
+            finalScore: localPlayerData.score || 0,
+            survivalTime: gameState.gameTime,
+            rank: playerRank > 0 ? playerRank : leaderboard.length + 1,
+            killedBy: (localPlayerData as any).killedBy || 'Another Player'
+          });
+          setIsGameOver(true);
+
+          console.log('💀 [GameCanvas] SHOWING GAME OVER MODAL - Player died!');
+        } else if (localPlayerData.isAlive && isGameOver) {
+          // Player respawned, close game over modal
+          setIsGameOver(false);
+          console.log('🔄 [GameCanvas] CLOSING GAME OVER MODAL - Player respawned!');
+        }
       }
-    }, 1000);
+    }, 100); // Check more frequently (100ms) for faster modal display
 
     return () => clearInterval(deathCheckInterval);
   }, [isGameOver, leaderboard]);

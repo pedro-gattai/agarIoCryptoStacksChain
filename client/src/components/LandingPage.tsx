@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useSocket } from '../contexts/SocketContext';
 import { WalletModal } from './WalletModal';
+import { WalletLogo } from './WalletLogo';
 import { TokenTicker } from './TokenTicker';
 import { InteractiveRoadmap } from './InteractiveRoadmap';
 import { ComingSoonModal } from './ui/ComingSoonModal';
+import { formatAddress, copyToClipboard, getExplorerUrl } from '../utils/formatAddress';
+import { Wallet, Rocket, ArrowRight } from 'lucide-react';
 
 interface LandingPageProps {
   onPlayNow: () => void;
@@ -28,13 +31,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   });
   const [activeSection, setActiveSection] = useState('hero');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { connected, wallet, balance, connecting } = useWallet();
+  const [showWalletDropdown, setShowWalletDropdown] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const { connected, wallet, balance, connecting, stxAddress, disconnect } = useWallet();
   const { isConnected: socketConnected } = useSocket();
+  const walletDropdownRef = useRef<HTMLDivElement>(null);
 
   // Scroll handling for navbar
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['hero', 'features', 'community'];
+      const sections = ['hero', 'features', 'roadmap'];
       const scrollPosition = window.scrollY + 100;
 
       for (const section of sections) {
@@ -74,18 +80,55 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     setShowComingSoon(true);
   };
 
+  const handleCopyAddress = async () => {
+    if (stxAddress) {
+      await copyToClipboard(stxAddress);
+      setCopiedAddress(true);
+      setTimeout(() => setCopiedAddress(false), 2000);
+    }
+  };
+
+  const handleViewExplorer = () => {
+    if (stxAddress) {
+      window.open(getExplorerUrl(stxAddress, 'testnet'), '_blank');
+      setShowWalletDropdown(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
+    setShowWalletDropdown(false);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (walletDropdownRef.current && !walletDropdownRef.current.contains(event.target as Node)) {
+        setShowWalletDropdown(false);
+      }
+    };
+
+    if (showWalletDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showWalletDropdown]);
+
   return (
     <div className="landing-page">
       {/* Navigation */}
       <nav className="landing-nav">
         <div className="nav-container">
           <div className="nav-logo">
-            <span className="logo-icon">💚</span>
+            <span className="logo-icon">🧡</span>
             <span className="logo-text">AgarCoin</span>
           </div>
           
           <div className="nav-links">
-            {['hero', 'features', 'community'].map((section) => (
+            {['hero', 'features', 'roadmap'].map((section) => (
               <button
                 key={section}
                 className={`nav-link ${activeSection === section ? 'active' : ''}`}
@@ -111,16 +154,44 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           <div className="nav-actions">
             {connected ? (
-              <div className="wallet-info-mini">
-                <span className="wallet-icon">{wallet?.icon}</span>
-                <span className="wallet-balance">{balance.toFixed(2)} STX</span>
+              <div className="wallet-connected-container" ref={walletDropdownRef}>
+                <button
+                  className="wallet-info-display"
+                  onClick={() => setShowWalletDropdown(!showWalletDropdown)}
+                >
+                  <WalletLogo walletName={wallet?.name || 'Hiro Wallet'} size={28} />
+                  <div className="wallet-details">
+                    <span className="wallet-address-short">{formatAddress(stxAddress)}</span>
+                    <span className="wallet-balance-small">{balance.toFixed(2)} STX</span>
+                  </div>
+                  <span className="dropdown-arrow">▼</span>
+                </button>
+
+                {showWalletDropdown && (
+                  <div className="wallet-dropdown">
+                    <button className="dropdown-item" onClick={handleCopyAddress}>
+                      <span className="dropdown-icon">📋</span>
+                      {copiedAddress ? 'Copied!' : 'Copy Address'}
+                    </button>
+                    <button className="dropdown-item" onClick={handleViewExplorer}>
+                      <span className="dropdown-icon">🔍</span>
+                      View on Explorer
+                    </button>
+                    <div className="dropdown-divider"></div>
+                    <button className="dropdown-item disconnect" onClick={handleDisconnect}>
+                      <span className="dropdown-icon">🚪</span>
+                      Disconnect
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              <button 
+              <button
                 className="connect-wallet-nav"
                 onClick={() => setShowWalletModal(true)}
                 disabled={connecting}
               >
+                <Wallet size={18} strokeWidth={2} />
                 {connecting ? 'Connecting...' : 'Connect Wallet'}
               </button>
             )}
@@ -133,7 +204,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="mobile-menu">
           <div className="mobile-menu-header">
             <div className="mobile-logo">
-              <span className="logo-icon">💚</span>
+              <span className="logo-icon">🧡</span>
               <span className="logo-text">AgarCoin</span>
             </div>
             <button 
@@ -146,7 +217,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
           
           <div className="mobile-menu-links">
-            {['hero', 'features', 'community'].map((section) => (
+            {['hero', 'features', 'roadmap'].map((section) => (
               <button
                 key={section}
                 className={`mobile-nav-link ${activeSection === section ? 'active' : ''}`}
@@ -159,16 +230,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           
           <div className="mobile-menu-actions">
             {connected ? (
-              <div className="mobile-wallet-info">
-                <span className="wallet-icon">{wallet?.icon}</span>
-                <span className="wallet-balance">{balance.toFixed(2)} STX</span>
+              <div className="mobile-wallet-connected">
+                <div className="mobile-wallet-display">
+                  <WalletLogo walletName={wallet?.name || 'Hiro Wallet'} size={32} />
+                  <div className="mobile-wallet-details">
+                    <span className="mobile-wallet-name">{wallet?.name}</span>
+                    <span className="mobile-wallet-address">{formatAddress(stxAddress)}</span>
+                    <span className="mobile-wallet-balance">{balance.toFixed(2)} STX</span>
+                  </div>
+                </div>
+                <div className="mobile-wallet-actions">
+                  <button className="mobile-action-btn" onClick={handleCopyAddress}>
+                    📋 {copiedAddress ? 'Copied!' : 'Copy'}
+                  </button>
+                  <button className="mobile-action-btn" onClick={handleViewExplorer}>
+                    🔍 Explorer
+                  </button>
+                  <button className="mobile-action-btn disconnect" onClick={handleDisconnect}>
+                    🚪 Disconnect
+                  </button>
+                </div>
               </div>
             ) : (
-              <button 
+              <button
                 className="mobile-connect-wallet"
                 onClick={() => setShowWalletModal(true)}
                 disabled={connecting}
               >
+                <Wallet size={20} strokeWidth={2} />
                 {connecting ? 'Connecting...' : 'Connect Wallet'}
               </button>
             )}
@@ -225,20 +314,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             <div className="hero-actions">
-              <button 
-                className="cta-play"
+              <button
+                className="cta-launch"
                 onClick={() => {
-                  console.log('🎮 LandingPage: Play Now button clicked!');
+                  console.log('🚀 LandingPage: Launch App button clicked!');
                   onPlayNow();
                 }}
               >
-                <span className="cta-icon">🎮</span>
-                PLAY NOW
-              </button>
-              
-              <button className="cta-token" onClick={handleBuyToken}>
-                <span className="cta-icon">💎</span>
-                BUY $AGAR
+                <Rocket size={24} strokeWidth={2} />
+                <span>LAUNCH APP</span>
+                <ArrowRight size={20} strokeWidth={2} />
               </button>
             </div>
 
@@ -323,44 +408,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
 
-      {/* Interactive Roadmap - Temporarily disabled for launch */}
-      {/* <InteractiveRoadmap /> */}
-
-      {/* Community Section */}
-      <section id="community" className="community-section">
-        <div className="section-container">
-          <div className="section-header">
-            <h2 className="section-title">Join the Revolution</h2>
-            <p className="section-subtitle">
-              Be part of the fastest growing crypto gaming community
-            </p>
-          </div>
-
-          <div className="community-grid">
-            <div className="community-card">
-              <div className="community-icon">𝕏</div>
-              <h3>Twitter</h3>
-              <p>Get the latest updates and alpha calls from our team</p>
-              <a href="https://x.com/Agarcryptofun" target="_blank" rel="noopener noreferrer" className="community-link">Follow @AgarCryptofun</a>
-            </div>
-            
-            <div className="community-card">
-              <div className="community-icon">📱</div>
-              <h3>Telegram</h3>
-              <p>Real-time game notifications and community announcements</p>
-              <a href="https://t.me/+wYTqPTvz7XY0MGVh" target="_blank" rel="noopener noreferrer" className="community-link">Join Telegram</a>
-            </div>
-          </div>
-
-        </div>
-      </section>
+      {/* Interactive Roadmap */}
+      <InteractiveRoadmap />
 
       {/* Footer */}
       <footer className="landing-footer">
         <div className="footer-container">
           <div className="footer-main">
             <div className="footer-brand">
-              <span className="footer-logo">💚 AgarCoin</span>
+              <span className="footer-logo">🧡 AgarCoin</span>
               <p>The future of crypto gaming is here</p>
             </div>
             
@@ -404,8 +460,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         onClose={() => setShowWalletModal(false)}
         onConnected={() => {
           setShowWalletModal(false);
-          // Auto-redirect to game after connecting
-          setTimeout(() => onPlayNow(), 1000);
         }}
       />
 

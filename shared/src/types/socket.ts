@@ -1,6 +1,6 @@
-import { GameRoom, GameUpdate, QueueStatus } from './game';
-import { Position } from './game';
-import { PrizeDistribution } from './blockchain';
+import { GameRoom, GameUpdate, QueueStatus } from './game.js';
+import { Position } from './game.js';
+import { PrizeDistribution } from './blockchain.js';
 
 // Socket event types
 export interface SocketEvents {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useWallet } from '../contexts/WalletContext';
+import { WalletLogo } from './WalletLogo';
 
 interface WalletModalProps {
   isOpen: boolean;
@@ -56,11 +57,13 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onCon
           {connected && wallet ? (
             <div className="connected-wallet">
               <div className="wallet-info">
-                <div className="wallet-icon">{wallet.icon}</div>
+                <div className="wallet-icon">
+                  <WalletLogo walletName={wallet.name} size={48} />
+                </div>
                 <div className="wallet-details">
                   <h3>{wallet.name}</h3>
                   <p className="wallet-address">
-                    {wallet.publicKey?.slice(0, 4)}...{wallet.publicKey?.slice(-4)}
+                    {wallet.publicKey?.slice(0, 5)}...{wallet.publicKey?.slice(-4)}
                   </p>
                 </div>
               </div>
@@ -88,7 +91,9 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onCon
                   onClick={() => handleWalletSelect(walletAdapter.name)}
                   disabled={connecting || walletAdapter.readyState !== 'Installed'}
                 >
-                  <div className="wallet-icon">{walletAdapter.icon}</div>
+                  <div className="wallet-icon">
+                    <WalletLogo walletName={walletAdapter.name} size={40} />
+                  </div>
                   <div className="wallet-info">
                     <span className="wallet-name">{walletAdapter.name}</span>
                     {walletAdapter.readyState !== 'Installed' && (

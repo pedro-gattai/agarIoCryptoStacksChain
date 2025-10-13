@@ -18,7 +18,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 30px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #fc6432 0%, #5546FF 100%);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -78,7 +78,7 @@
 .tab-btn.active {
   color: white;
   background: rgba(255, 255, 255, 0.15);
-  border-bottom-color: #ffd700;
+  border-bottom-color: #fc6432;
 }
 
 .leaderboards-content {
@@ -104,7 +104,7 @@
   width: 50px;
   height: 50px;
   border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top: 4px solid #ffd700;
+  border-top: 4px solid #fc6432;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 20px;
@@ -116,7 +116,7 @@
 }
 
 .error-state button {
-  background: #e74c3c;
+  background: #fc6432;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -127,7 +127,7 @@
 }
 
 .error-state button:hover {
-  background: #c0392b;
+  background: #e55428;
 }
 
 .leaderboard-list {
@@ -193,7 +193,7 @@
 
 .player-address {
   font-family: 'Courier New', monospace;
-  color: #ffd700;
+  color: #F7931A;
   font-weight: bold;
 }
 
@@ -239,11 +239,11 @@
 .primary-stat {
   font-size: 1.1rem;
   font-weight: bold;
-  color: #ffd700;
-  background: rgba(255, 215, 0, 0.1);
+  color: #F7931A;
+  background: rgba(247, 147, 26, 0.1);
   padding: 5px 10px;
   border-radius: 15px;
-  border: 1px solid rgba(255, 215, 0, 0.3);
+  border: 1px solid rgba(247, 147, 26, 0.3);
 }
 
 .empty-state {

@@ -146,11 +146,29 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       // Handle your own death
       socketService.on('you_died', (deathData: any) => {
         console.log('💀 CLIENT: You died!', deathData);
-        
-        // Trigger game over modal
+
+        // Mark local player as dead in GameEngine
         const gameEngine = gameEngineManager.getGameEngine();
         if (gameEngine) {
           gameEngine.handleLocalPlayerDeath(deathData);
+
+          // Force update the local player's isAlive status
+          const localPlayer = gameEngine.getLocalPlayer();
+          if (localPlayer) {
+            localPlayer.isAlive = false;
+            console.log('💀 [SocketContext] Local player marked as dead for modal display');
+          }
+        }
+      });
+
+      // Handle split cell merge events
+      socketService.on('split_merged', (mergeData: any) => {
+        console.log('🔄 CLIENT: Split merged!', mergeData);
+
+        // Remove the merged split cell from GameEngine
+        const gameEngine = gameEngineManager.getGameEngine();
+        if (gameEngine) {
+          gameEngine.handleSplitMerge(mergeData);
         }
       });
 
@@ -221,15 +239,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         await socketService.connect(serverUrl);
         setIsConnected(true);
         setError(null);
-        
-        // DEMO MODE: Auto-join global room after connection
-        if (DEMO_CONSTANTS.ENABLED) {
-          console.log('🎮 SocketContext: Demo mode detected, auto-joining global room after connection...');
-          setTimeout(() => {
-            console.log('🚀 SocketContext: Attempting auto-join for demo mode');
-            socketService.joinGlobalRoom(DEMO_CONSTANTS.DEMO_WALLET_ADDRESS);
-          }, 1000); // 1 second delay to ensure everything is ready
-        }
+
+        // FIXED: Removed auto-join from SocketContext to prevent duplicate joins
+        // GameLobby.tsx now handles auto-joining exclusively (line 52)
       } catch (err) {
         console.error('SocketContext: Auto-connect failed:', err);
         setError('Failed to connect to game server');

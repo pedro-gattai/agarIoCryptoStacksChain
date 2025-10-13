@@ -224,7 +224,10 @@ export class BlockchainService {
         contractAddress: this.contractAddress,
         contractName: this.contractName,
         functionName: 'get-game-pool',
-        arguments: [`0x${gameId.toString(16).padStart(32, '0')}`]
+        readOnlyFunctionArgs: {
+          sender: this.contractAddress,
+          arguments: [`0x${gameId.toString(16).padStart(32, '0')}`]
+        }
       });
       
       return result;
@@ -245,7 +248,10 @@ export class BlockchainService {
         contractAddress: this.contractAddress,
         contractName: this.contractName,
         functionName: 'get-next-game-id',
-        arguments: []
+        readOnlyFunctionArgs: {
+          sender: this.contractAddress,
+          arguments: []
+        }
       });
       
       // Parse the result and return the game ID
