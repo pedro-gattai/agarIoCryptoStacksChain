@@ -176,88 +176,116 @@ app.post('/api/games', async (req, res) => {
 });
 
 // Stats endpoints
-app.get('/api/leaderboards/global', (req, res) => {
-  const limit = parseInt(req.query.limit as string) || 100;
-  const leaderboard = statsService.getGlobalLeaderboard(limit);
-  res.json(leaderboard);
-});
-
-app.get('/api/leaderboards/earnings', (req, res) => {
-  const limit = parseInt(req.query.limit as string) || 100;
-  const leaderboard = statsService.getEarningsLeaderboard(limit);
-  res.json(leaderboard);
-});
-
-app.get('/api/leaderboards/winrate', (req, res) => {
-  const limit = parseInt(req.query.limit as string) || 100;
-  const minGames = parseInt(req.query.minGames as string) || 10;
-  const leaderboard = statsService.getWinRateLeaderboard(minGames, limit);
-  res.json(leaderboard);
-});
-
-app.get('/api/leaderboards/kills', (req, res) => {
-  const limit = parseInt(req.query.limit as string) || 100;
-  const leaderboard = statsService.getKillLeaderboard(limit);
-  res.json(leaderboard);
-});
-
-app.get('/api/leaderboards/streaks', (req, res) => {
-  const limit = parseInt(req.query.limit as string) || 100;
-  const leaderboard = statsService.getStreakLeaderboard(limit);
-  res.json(leaderboard);
-});
-
-app.get('/api/stats/:playerId', (req, res) => {
-  const { playerId } = req.params;
-  const stats = statsService.getPlayerStats(playerId);
-  
-  if (!stats) {
-    return res.status(404).json({ error: 'Player not found' });
+app.get('/api/leaderboards/global', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const leaderboard = await statsService.getGlobalLeaderboard(limit);
+    res.json(leaderboard);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch global leaderboard' });
   }
-  
-  const rank = statsService.getPlayerRank(playerId);
-  const achievements = statsService.checkAchievements(playerId);
-  
-  res.json({
-    ...stats,
-    rank,
-    achievements
-  });
+});
+
+app.get('/api/leaderboards/earnings', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const leaderboard = await statsService.getEarningsLeaderboard(limit);
+    res.json(leaderboard);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch earnings leaderboard' });
+  }
+});
+
+app.get('/api/leaderboards/winrate', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const minGames = parseInt(req.query.minGames as string) || 10;
+    const leaderboard = await statsService.getWinRateLeaderboard(minGames, limit);
+    res.json(leaderboard);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch win rate leaderboard' });
+  }
+});
+
+app.get('/api/leaderboards/kills', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const leaderboard = await statsService.getKillLeaderboard(limit);
+    res.json(leaderboard);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch kills leaderboard' });
+  }
+});
+
+app.get('/api/leaderboards/streaks', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const leaderboard = await statsService.getStreakLeaderboard(limit);
+    res.json(leaderboard);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch streaks leaderboard' });
+  }
+});
+
+app.get('/api/stats/:playerId', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const stats = await statsService.getPlayerStats(playerId);
+
+    if (!stats) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+
+    const rank = await statsService.getPlayerRank(playerId);
+    const achievements = await statsService.checkAchievements(playerId);
+
+    res.json({
+      ...stats,
+      rank,
+      achievements
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch player stats' });
+  }
 });
 
 // Test endpoint to populate sample data
-app.post('/api/test/populate', (req, res) => {
-  // Create some sample players
-  const samplePlayers = [
-    { id: 'player1', wallet: 'DsVmA5...9Qcz', gamesWon: 15, gamesPlayed: 20 },
-    { id: 'player2', wallet: '7JkPq3...4Rfh', gamesWon: 8, gamesPlayed: 12 },
-    { id: 'player3', wallet: 'BxNm7K...2Lps', gamesWon: 22, gamesPlayed: 25 },
-    { id: 'player4', wallet: 'FgHt8R...7Nqw', gamesWon: 5, gamesPlayed: 30 },
-    { id: 'player5', wallet: 'PkLm9Z...3Yvx', gamesWon: 18, gamesPlayed: 22 }
-  ];
+app.post('/api/test/populate', async (req, res) => {
+  try {
+    // Create some sample players
+    const samplePlayers = [
+      { id: 'player1', wallet: 'DsVmA5...9Qcz', gamesWon: 15, gamesPlayed: 20 },
+      { id: 'player2', wallet: '7JkPq3...4Rfh', gamesWon: 8, gamesPlayed: 12 },
+      { id: 'player3', wallet: 'BxNm7K...2Lps', gamesWon: 22, gamesPlayed: 25 },
+      { id: 'player4', wallet: 'FgHt8R...7Nqw', gamesWon: 5, gamesPlayed: 30 },
+      { id: 'player5', wallet: 'PkLm9Z...3Yvx', gamesWon: 18, gamesPlayed: 22 }
+    ];
 
-  samplePlayers.forEach(player => {
-    statsService.initializePlayer(player.id, player.wallet);
-    
-    // Create sample game results
-    for (let i = 0; i < player.gamesPlayed; i++) {
-      const won = i < player.gamesWon;
-      const gameResult = {
-        playerId: player.id,
-        won,
-        score: won ? Math.random() * 5000 + 2000 : Math.random() * 2000,
-        kills: Math.floor(Math.random() * 10),
-        deaths: won ? 0 : 1,
-        survivalTime: Math.random() * 300000 + 60000,
-        maxCellSize: Math.random() * 100 + 50,
-        earnings: won ? Math.random() * 2 + 0.5 : -0.1
-      };
-      
-      statsService.updatePlayerStats([gameResult]);
+    for (const player of samplePlayers) {
+      await statsService.initializePlayer(player.id, player.wallet);
+
+      // Create sample game results
+      for (let i = 0; i < player.gamesPlayed; i++) {
+        const won = i < player.gamesWon;
+        const gameResult = {
+          playerId: player.id,
+          won,
+          score: won ? Math.random() * 5000 + 2000 : Math.random() * 2000,
+          kills: Math.floor(Math.random() * 10),
+          deaths: won ? 0 : 1,
+          survivalTime: Math.random() * 300000 + 60000,
+          maxCellSize: Math.random() * 100 + 50,
+          earnings: won ? Math.random() * 2 + 0.5 : -0.1
+        };
+
+        await statsService.updatePlayerStats([gameResult]);
+      }
     }
-  });
-  
-  res.json({ message: 'Sample data populated successfully!' });
+
+    res.json({ message: 'Sample data populated successfully!' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to populate sample data' });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

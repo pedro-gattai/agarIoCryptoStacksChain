@@ -11,7 +11,7 @@
 (define-constant ERR-GAME-NOT-FOUND (err u407))
 
 (define-constant HOUSE-FEE-PERCENTAGE u20) ;; 20%
-(define-constant MAX-PLAYERS u20)
+(define-constant MAX-PLAYERS u100)
 (define-constant MAX-WINNERS u3)
 
 ;; Game status enum

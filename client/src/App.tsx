@@ -93,15 +93,15 @@ function AppContent() {
       )}
 
       {appState === 'leaderboards' && (
-        <Leaderboards onClose={onBackToLanding} />
+        <Leaderboards onClose={onBackToLobby} />
       )}
 
       {appState === 'achievements' && (
-        <AchievementSystem onClose={onBackToLanding} />
+        <AchievementSystem onClose={onBackToLobby} />
       )}
 
       {appState === 'tournaments' && (
-        <TournamentSystem onClose={onBackToLanding} />
+        <TournamentSystem onClose={onBackToLobby} />
       )}
     </div>
   )

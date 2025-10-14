@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletLogo } from './WalletLogo';
 
@@ -9,18 +9,30 @@ interface WalletModalProps {
 }
 
 export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onConnected }) => {
-  const { wallets, wallet, connecting, connected, select, connect, disconnect } = useWallet();
+  const { wallet, connecting, connected, connect, disconnect } = useWallet();
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-trigger Stacks Connect when modal opens and wallet not connected
+  useEffect(() => {
+    if (isOpen && !connected && !connecting) {
+      handleConnect();
+    }
+  }, [isOpen]);
+
+  // Auto-close modal when connection succeeds
+  useEffect(() => {
+    if (connected && isOpen) {
+      onConnected?.();
+      onClose();
+    }
+  }, [connected]);
 
   if (!isOpen) return null;
 
-  const handleWalletSelect = async (walletName: string) => {
+  const handleConnect = () => {
     try {
       setError(null);
-      select(walletName);
-      await connect();
-      onConnected?.();
-      onClose();
+      connect();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect wallet');
     }
@@ -29,7 +41,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onCon
   const handleDisconnect = async () => {
     try {
       setError(null);
-      await disconnect();
+      disconnect();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disconnect wallet');
@@ -67,10 +79,10 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onCon
                   </p>
                 </div>
               </div>
-              
+
               <div className="wallet-actions">
-                <button 
-                  className="disconnect-btn" 
+                <button
+                  className="disconnect-btn"
                   onClick={handleDisconnect}
                   disabled={connecting}
                 >
@@ -81,39 +93,37 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onCon
           ) : (
             <div className="wallet-list">
               <p className="wallet-description">
-                Choose a wallet to connect to Agar.io Crypto
+                {connecting ? 'Opening Stacks Connect...' : 'Click below to connect your Stacks wallet'}
               </p>
-              
-              {wallets.map((walletAdapter) => (
+
+              {!connecting && (
                 <button
-                  key={walletAdapter.name}
-                  className={`wallet-option ${walletAdapter.readyState !== 'Installed' ? 'not-installed' : ''}`}
-                  onClick={() => handleWalletSelect(walletAdapter.name)}
-                  disabled={connecting || walletAdapter.readyState !== 'Installed'}
+                  className="wallet-option primary-connect"
+                  onClick={handleConnect}
                 >
                   <div className="wallet-icon">
-                    <WalletLogo walletName={walletAdapter.name} size={40} />
+                    <WalletLogo walletName="Hiro Wallet" size={40} />
                   </div>
                   <div className="wallet-info">
-                    <span className="wallet-name">{walletAdapter.name}</span>
-                    {walletAdapter.readyState !== 'Installed' && (
-                      <span className="wallet-status">Not Installed</span>
-                    )}
-                    {connecting && wallet?.name === walletAdapter.name && (
-                      <span className="wallet-status">Connecting...</span>
-                    )}
+                    <span className="wallet-name">Connect with Stacks</span>
+                    <span className="wallet-status">Supports Hiro, Xverse, Leather</span>
                   </div>
-                  {walletAdapter.readyState !== 'Installed' && (
-                    <span className="install-prompt">Install</span>
-                  )}
                 </button>
-              ))}
-              
+              )}
+
+              {connecting && (
+                <div className="connecting-state">
+                  <div className="spinner"></div>
+                  <p>Opening Stacks Connect...</p>
+                  <p className="small-text">Please check your wallet extension</p>
+                </div>
+              )}
+
               <div className="wallet-help">
                 <p>New to Stacks wallets?</p>
-                <a 
-                  href="https://wallet.hiro.so/" 
-                  target="_blank" 
+                <a
+                  href="https://wallet.hiro.so/"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="help-link"
                 >

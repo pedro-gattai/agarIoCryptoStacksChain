@@ -79,11 +79,18 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
       const userData = currentUserSession.loadUserData();
       setUserData(userData);
       console.log('User already signed in:', userData.profile.stxAddress);
-    } else if (autoConnect && currentUserSession.isSignInPending()) {
-      currentUserSession.handlePendingSignIn().then((userData) => {
-        setUserData(userData);
-        console.log('Auto-connected user:', userData.profile.stxAddress);
-      });
+    } else if (currentUserSession.isSignInPending()) {
+      setConnecting(true);
+      currentUserSession.handlePendingSignIn()
+        .then((userData) => {
+          setUserData(userData);
+          setConnecting(false);
+          console.log('Auto-connected user:', userData.profile.stxAddress);
+        })
+        .catch((error) => {
+          console.error('Error handling pending sign in:', error);
+          setConnecting(false);
+        });
     }
   }, [autoConnect, currentUserSession]);
 

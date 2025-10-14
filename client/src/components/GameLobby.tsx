@@ -1,28 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import { useWallet } from '../contexts/WalletContext';
 import { WalletModal } from './WalletModal';
 import { WalletLogo } from './WalletLogo';
-import { DEMO_CONSTANTS } from 'shared';
-import { Gamepad2, Users, Target, Coins, Trophy, Play, Wallet, Loader2, ArrowLeft, Award, BarChart3 } from 'lucide-react';
+import { Gamepad2, Users, Play, Wallet, Loader2, ArrowLeft, BarChart3, LogOut, ExternalLink, Copy, ChevronDown } from 'lucide-react';
 
 interface GameLobbyProps {
   onGameStart: () => void;
   onShowLeaderboards?: () => void;
-  onShowAchievements?: () => void;
   onBackToMenu?: () => void;
 }
 
-export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderboards, onShowAchievements, onBackToMenu }) => {
-  const { 
-    isConnected, 
-    error, 
+export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderboards, onBackToMenu }) => {
+  const {
+    isConnected,
+    error,
     clearError,
     currentRoom,
     joinGlobalRoom: socketJoinGlobalRoom
   } = useSocket();
-  
+
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showWalletDropdown, setShowWalletDropdown] = useState(false);
   const [gameStatus, setGameStatus] = useState({
     playersOnline: 0,
     maxPlayers: 100,
@@ -30,17 +29,31 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
     inQueue: false,
     inGame: false
   });
-  
-  const { 
-    wallet, 
-    connected, 
-    connecting, 
-    publicKey, 
-    balance 
+
+  const {
+    wallet,
+    connected,
+    connecting,
+    publicKey,
+    balance,
+    disconnect: disconnectWallet
   } = useWallet();
 
-  // REMOVED: Auto-join on mount
-  // Players must now manually click "PLAY NOW" to join the game
+  const walletDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (walletDropdownRef.current && !walletDropdownRef.current.contains(event.target as Node)) {
+        setShowWalletDropdown(false);
+      }
+    };
+
+    if (showWalletDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showWalletDropdown]);
 
   // Auto-navigate to game when successfully joined a room
   useEffect(() => {
@@ -51,8 +64,7 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
         inGame: true,
         playersOnline: currentRoom.playerCount || prev.playersOnline
       }));
-      
-      // Small delay to ensure GameEngine is ready
+
       setTimeout(() => {
         console.log('🚀 GameLobby: Auto-starting game after successful room join...');
         onGameStart();
@@ -62,25 +74,19 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
 
   const joinGlobalRoom = () => {
     console.log('🎯 GameLobby: joinGlobalRoom() called');
-    
+
     if (!isConnected) {
       console.error('❌ GameLobby: Cannot join global room - not connected to server');
       return;
     }
-    
+
+    if (!publicKey) {
+      console.error('❌ GameLobby: Cannot join global room - wallet not connected');
+      return;
+    }
+
     console.log('🚀 GameLobby: About to call socketJoinGlobalRoom()');
-    
-    
-    console.log('🌐 GameLobby: Attempting to join global room', {
-      wallet: publicKey,
-      connected,
-      isConnected,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Use demo wallet in demo mode, otherwise use real wallet
-    const walletToUse = DEMO_CONSTANTS.ENABLED ? DEMO_CONSTANTS.DEMO_WALLET_ADDRESS : (publicKey || undefined);
-    socketJoinGlobalRoom(walletToUse);
+    socketJoinGlobalRoom(publicKey);
   };
 
   const handlePlayNow = () => {
@@ -93,69 +99,124 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
       timestamp: new Date().toISOString()
     });
 
-    // Check wallet connection (skip in demo mode)
-    if (!connected && !DEMO_CONSTANTS.ENABLED) {
+    // Check wallet connection - ALWAYS required
+    if (!connected) {
       console.log('💳 GameLobby: Wallet not connected, showing modal');
       setShowWalletModal(true);
       return;
     }
-    
+
     if (!isConnected) {
       console.log('❌ GameLobby: Not connected to server');
       return;
     }
-    
+
     if (currentRoom && currentRoom.id) {
       console.log('🎮 GameLobby: Already in room, starting game immediately...');
       onGameStart();
     } else {
       console.log('🌐 GameLobby: Attempting to join global room...');
       joinGlobalRoom();
-      // The useEffect will handle navigation once currentRoom is set
+    }
+  };
+
+  const handleDisconnect = () => {
+    disconnectWallet();
+    setShowWalletDropdown(false);
+  };
+
+  const handleCopyAddress = () => {
+    if (publicKey) {
+      navigator.clipboard.writeText(publicKey);
+      // Could add a toast notification here
+    }
+  };
+
+  const handleViewOnExplorer = () => {
+    if (publicKey) {
+      window.open(`https://explorer.hiro.so/address/${publicKey}?chain=testnet`, '_blank');
     }
   };
 
   return (
-    <div className="global-lobby-container">
-      <div className="lobby-header">
-        <div className="header-left">
-          <div className="lobby-title">
-            <Gamepad2 size={40} strokeWidth={2.5} className="lobby-icon" />
-            <div>
-              <h1>Global Arena</h1>
-              <p>Join {gameStatus.maxPlayers} players in epic battles!</p>
-            </div>
-          </div>
+    <div className="minimal-lobby-container">
+      {/* Top Navigation Bar */}
+      <div className="lobby-top-bar">
+        <div className="top-bar-left">
+          <Gamepad2 size={28} strokeWidth={2.5} className="logo-icon" />
+          <h1 className="game-title">AgarCrypto</h1>
         </div>
-        
-        <div className="header-right">
-          {DEMO_CONSTANTS.ENABLED ? (
-            <div className="wallet-display demo-mode">
-              <Gamepad2 size={32} strokeWidth={2} className="wallet-icon-svg" />
-              <div className="wallet-info">
-                <div className="wallet-name">Demo Mode</div>
-                <div className="wallet-balance">∞ Demo STX</div>
-                <div className="wallet-address">DEMO_MODE</div>
-              </div>
-            </div>
-          ) : connected ? (
-            <div className="wallet-display connected">
-              <WalletLogo walletName={wallet?.name || 'Hiro Wallet'} size={32} />
-              <div className="wallet-info">
-                <div className="wallet-name">{wallet?.name}</div>
-                <div className="wallet-balance">{balance.toFixed(3)} STX</div>
-                <div className="wallet-address">
-                  {publicKey?.slice(0, 4)}...{publicKey?.slice(-4)}
+
+        <div className="top-bar-center">
+          {onBackToMenu && (
+            <button onClick={onBackToMenu} className="nav-btn">
+              <ArrowLeft size={18} strokeWidth={2} />
+              <span>Home</span>
+            </button>
+          )}
+          {onShowLeaderboards && (
+            <button onClick={onShowLeaderboards} className="nav-btn">
+              <BarChart3 size={18} strokeWidth={2} />
+              <span>Leaderboards</span>
+            </button>
+          )}
+        </div>
+
+        <div className="top-bar-right">
+          {connected ? (
+            <div className="wallet-dropdown-wrapper" ref={walletDropdownRef}>
+              <button
+                className="wallet-badge connected"
+                onClick={() => setShowWalletDropdown(!showWalletDropdown)}
+              >
+                <WalletLogo walletName={wallet?.name || 'Hiro Wallet'} size={20} />
+                <div className="wallet-text-group">
+                  <span className="wallet-balance">{balance.toFixed(3)} STX</span>
+                  <span className="wallet-address-short">
+                    {publicKey?.slice(0, 4)}...{publicKey?.slice(-4)}
+                  </span>
                 </div>
-              </div>
+                <ChevronDown size={16} className={`chevron ${showWalletDropdown ? 'open' : ''}`} />
+              </button>
+
+              {showWalletDropdown && (
+                <div className="wallet-dropdown-menu">
+                  <div className="dropdown-header">
+                    <WalletLogo walletName={wallet?.name || 'Hiro Wallet'} size={24} />
+                    <div className="dropdown-header-text">
+                      <span className="dropdown-wallet-name">{wallet?.name}</span>
+                      <span className="dropdown-balance">{balance.toFixed(6)} STX</span>
+                    </div>
+                  </div>
+
+                  <div className="dropdown-divider"></div>
+
+                  <button className="dropdown-item" onClick={handleCopyAddress}>
+                    <Copy size={16} />
+                    <span>Copy Address</span>
+                  </button>
+
+                  <button className="dropdown-item" onClick={handleViewOnExplorer}>
+                    <ExternalLink size={16} />
+                    <span>View on Explorer</span>
+                  </button>
+
+                  <div className="dropdown-divider"></div>
+
+                  <button className="dropdown-item danger" onClick={handleDisconnect}>
+                    <LogOut size={16} />
+                    <span>Disconnect</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <button
-              className="wallet-connect-btn"
+              className="connect-wallet-btn"
               onClick={() => setShowWalletModal(true)}
               disabled={connecting}
             >
-              <Wallet size={20} strokeWidth={2.5} />
+              <Wallet size={18} strokeWidth={2.5} />
               {connecting ? 'Connecting...' : 'Connect Wallet'}
             </button>
           )}
@@ -163,144 +224,98 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
       </div>
 
       {error && (
-        <div className="error-message">
+        <div className="error-banner">
           <p>{error}</p>
           <button onClick={clearError}>×</button>
         </div>
       )}
 
-      <div className="global-lobby-content">
-        {/* Connection Status */}
-        <div className="connection-status">
-          <div className={`status-indicator ${isConnected ? 'connected' : 'connecting'}`}>
-            <span className="status-dot"></span>
-            <span className="status-text">
-              {isConnected ? 'Connected to Global Arena' : 'Connecting...'}
-            </span>
+      {/* Main Play Area */}
+      <div className="play-area">
+        {!isConnected ? (
+          <div className="play-state">
+            <Loader2 size={72} className="loading-icon" />
+            <h2 className="play-title">Connecting...</h2>
+            <p className="play-subtitle">Establishing connection to game server</p>
           </div>
-        </div>
-
-        {/* Global Game Stats */}
-        <div className="global-game-stats">
-          <div className="stat-card">
-            <Users size={40} strokeWidth={2} className="stat-icon-svg" />
-            <div className="stat-content">
-              <div className="stat-number">{gameStatus.playersOnline}</div>
-              <div className="stat-label">Players Online</div>
-            </div>
+        ) : !connected ? (
+          <div className="play-state">
+            <Wallet size={72} strokeWidth={1.5} className="state-icon" />
+            <h2 className="play-title">Connect Your Wallet</h2>
+            <p className="play-subtitle">Link your Stacks wallet to join the battle and start earning rewards</p>
+            <button
+              className="wallet-connect-large"
+              onClick={() => setShowWalletModal(true)}
+              disabled={connecting}
+            >
+              <Wallet size={24} strokeWidth={2.5} />
+              {connecting ? 'Connecting...' : 'Connect Wallet'}
+            </button>
           </div>
-
-          <div className="stat-card">
-            <Target size={40} strokeWidth={2} className="stat-icon-svg" />
-            <div className="stat-content">
-              <div className="stat-number">{gameStatus.maxPlayers}</div>
-              <div className="stat-label">Max Capacity</div>
-            </div>
-          </div>
-
-          <div className="stat-card">
-            <Coins size={40} strokeWidth={2} className="stat-icon-svg" />
-            <div className="stat-content">
-              <div className="stat-number">0.01</div>
-              <div className="stat-label">Entry Fee (STX)</div>
+        ) : gameStatus.inQueue ? (
+          <div className="play-state">
+            <div className="queue-position-badge">#{gameStatus.queuePosition}</div>
+            <h2 className="play-title">In Queue</h2>
+            <p className="play-subtitle">Waiting for an available spot...</p>
+            <div className="queue-bar">
+              <div className="queue-bar-fill" style={{ width: '65%' }}></div>
             </div>
           </div>
+        ) : (
+          <div className="play-state">
+            <h1 className="arena-title">Global Arena</h1>
+            <p className="arena-subtitle">Battle. Dominate. Earn.</p>
 
-          <div className="stat-card">
-            <Trophy size={40} strokeWidth={2} className="stat-icon-svg" />
-            <div className="stat-content">
-              <div className="stat-number">24/7</div>
-              <div className="stat-label">Always Active</div>
-            </div>
-          </div>
-        </div>
+            <button
+              className="play-button-massive"
+              onClick={handlePlayNow}
+              disabled={!isConnected || !connected}
+            >
+              <Play size={48} strokeWidth={3} fill="currentColor" />
+              <span>PLAY NOW</span>
+            </button>
 
-        {/* Main Action Area */}
-        <div className="main-action-area">
-          {!isConnected ? (
-            <div className="connecting-state">
-              <Loader2 size={48} className="loading-spinner-icon" />
-              <h3>Connecting to Global Arena...</h3>
-              <p>Please wait while we connect you to the game server.</p>
-            </div>
-          ) : !connected && !DEMO_CONSTANTS.ENABLED ? (
-            <div className="wallet-required">
-              <Wallet size={64} strokeWidth={2} className="wallet-icon-large-svg" />
-              <h3>Connect Your Wallet</h3>
-              <p>Connect your Stacks wallet to join the battle and start earning!</p>
-              <button
-                className="connect-wallet-large"
-                onClick={() => setShowWalletModal(true)}
-                disabled={connecting}
-              >
-                <Wallet size={20} strokeWidth={2.5} />
-                {connecting ? 'Connecting...' : 'Connect Wallet'}
-              </button>
-            </div>
-          ) : gameStatus.inQueue ? (
-            <div className="queue-state">
-              <div className="queue-icon">⏰</div>
-              <h3>In Queue</h3>
-              <div className="queue-info">
-                <p>Position: <span className="queue-position">#{gameStatus.queuePosition}</span></p>
-                <p>You'll be automatically added when a spot opens up!</p>
+            <div className="game-stats-inline">
+              <div className="stat-inline">
+                <Users size={18} strokeWidth={2} />
+                <span>{gameStatus.playersOnline}/{gameStatus.maxPlayers} Players</span>
               </div>
-              <div className="queue-progress">
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: '65%' }}></div>
-                </div>
+              <div className="stat-divider">•</div>
+              <div className="stat-inline">
+                <span>Entry: 0.01 STX</span>
+              </div>
+              <div className="stat-divider">•</div>
+              <div className={`stat-inline status ${isConnected ? 'connected' : 'connecting'}`}>
+                <div className="status-indicator"></div>
+                <span>{isConnected ? 'Connected' : 'Connecting'}</span>
               </div>
             </div>
-          ) : (
-            <div className="ready-to-play">
-              <Gamepad2 size={64} strokeWidth={2} className="play-icon-svg" />
-              <h3>Ready to Battle!</h3>
-              <p>Jump into the global arena and compete with {gameStatus.playersOnline} players!</p>
-
-              <button
-                className="play-now-btn"
-                onClick={handlePlayNow}
-                disabled={!isConnected || (!connected && !DEMO_CONSTANTS.ENABLED)}
-              >
-                <Play size={24} strokeWidth={2.5} fill="currentColor" />
-                <span>PLAY NOW</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="lobby-actions">
-          {onBackToMenu && (
-            <button
-              onClick={onBackToMenu}
-              className="back-to-menu-btn"
-            >
-              <ArrowLeft size={20} strokeWidth={2} />
-              <span>Back to Home</span>
-            </button>
-          )}
-          {onShowLeaderboards && (
-            <button
-              onClick={onShowLeaderboards}
-              className="leaderboards-btn"
-            >
-              <BarChart3 size={20} strokeWidth={2} />
-              <span>Leaderboards</span>
-            </button>
-          )}
-          {onShowAchievements && (
-            <button
-              onClick={onShowAchievements}
-              className="achievements-btn"
-            >
-              <Award size={20} strokeWidth={2} />
-              <span>Achievements</span>
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-      
+
+      {/* How to Play - Minimal */}
+      {isConnected && connected && !gameStatus.inQueue && (
+        <div className="how-to-play-minimal">
+          <div className="how-step">
+            <span className="step-num">1</span>
+            <span>Move with mouse</span>
+          </div>
+          <div className="how-step">
+            <span className="step-num">2</span>
+            <span>Eat pellets to grow</span>
+          </div>
+          <div className="how-step">
+            <span className="step-num">3</span>
+            <span>Space to split</span>
+          </div>
+          <div className="how-step">
+            <span className="step-num">4</span>
+            <span>Avoid bigger players</span>
+          </div>
+        </div>
+      )}
+
       <WalletModal
         isOpen={showWalletModal}
         onClose={() => setShowWalletModal(false)}

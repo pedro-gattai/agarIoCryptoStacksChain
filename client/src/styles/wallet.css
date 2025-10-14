@@ -105,10 +105,53 @@
   background: linear-gradient(135deg, #451a03 0%, #78350f 100%);
 }
 
+.wallet-option.primary-connect {
+  border-color: #fc6432;
+  background: linear-gradient(135deg, #fc6432 0%, #F7931A 100%);
+}
+
+.wallet-option.primary-connect:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e55428 0%, #e08410 100%);
+}
+
 .wallet-icon {
   font-size: 2rem;
   min-width: 40px;
   text-align: center;
+}
+
+.connecting-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.connecting-state .spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(252, 100, 50, 0.2);
+  border-top-color: #fc6432;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+.connecting-state p {
+  color: #cbd5e1;
+  margin: 8px 0;
+}
+
+.connecting-state .small-text {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .wallet-info {

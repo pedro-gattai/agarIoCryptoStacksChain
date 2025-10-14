@@ -1,0 +1,247 @@
+// Prisma schema for AgarCrypto game
+// Supports PostgreSQL database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - represents a player with wallet
+model User {
+  id             String   @id @default(cuid())
+  walletAddress  String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  stats          PlayerStats?
+  gamePlayers    GamePlayer[]
+  achievements   Achievement[]
+  transactions   Transaction[]
+
+  @@index([walletAddress])
+}
+
+// Player statistics - all game stats for a user
+model PlayerStats {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+
+  // Game statistics
+  gamesPlayed     Int      @default(0)
+  gamesWon        Int      @default(0)
+  totalKills      Int      @default(0)
+  totalDeaths     Int      @default(0)
+  highestScore    Int      @default(0)
+  biggestCellSize Int      @default(0)
+
+  // Financial statistics (in microSTX)
+  totalEarnings   BigInt   @default(0)
+  totalLosses     BigInt   @default(0)
+  netProfit       BigInt   @default(0)
+
+  // ELO rating system
+  eloRating       Int      @default(1000)
+  peakEloRating   Int      @default(1000)
+
+  // Survival statistics
+  avgSurvivalTime Float    @default(0)
+  longestSurvival Int      @default(0)
+  totalPlayTime   Int      @default(0) // in seconds
+
+  // Streak tracking
+  currentStreak   Int      @default(0)
+  longestStreak   Int      @default(0)
+
+  // Rankings
+  globalRank      Int?
+  eloRank         Int?
+  earningsRank    Int?
+
+  // Timestamps
+  lastGameAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([eloRating(sort: Desc)])
+  @@index([totalEarnings(sort: Desc)])
+  @@index([gamesWon(sort: Desc)])
+  @@index([totalKills(sort: Desc)])
+  @@index([currentStreak(sort: Desc)])
+}
+
+// Game session
+model Game {
+  id              String       @id @default(cuid())
+  gameId          Int          @unique @default(autoincrement())
+
+  // Contract tracking
+  contractGameId  Int?         // ID from smart contract
+  contractTxId    String?      // Transaction ID of game initialization
+
+  // Game configuration
+  entryFee        BigInt       // in microSTX
+  maxPlayers      Int
+  worldSize       Int          @default(4000)
+
+  // Game state
+  status          GameStatus   @default(WAITING)
+  startedAt       DateTime?
+  endedAt         DateTime?
+  duration        Int?         // in seconds
+
+  // Pool tracking
+  totalPool       BigInt       @default(0)
+  houseFee        BigInt       @default(0)
+  prizePool       BigInt       @default(0)
+
+  // Results
+  winner1Address  String?
+  winner2Address  String?
+  winner3Address  String?
+
+  winner1Prize    BigInt?
+  winner2Prize    BigInt?
+  winner3Prize    BigInt?
+
+  // Metadata
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  players         GamePlayer[]
+  transactions    Transaction[]
+
+  @@index([status])
+  @@index([startedAt])
+  @@index([contractGameId])
+}
+
+// Junction table for Game-User many-to-many relationship
+model GamePlayer {
+  id              String         @id @default(cuid())
+  gameId          String
+  userId          String
+
+  // Entry tracking
+  joinedAt        DateTime       @default(now())
+  paidEntryFee    Boolean        @default(false)
+  entryTxId       String?
+
+  // Game performance
+  finalScore      Int            @default(0)
+  maxCellSize     Int            @default(0)
+  kills           Int            @default(0)
+  deaths          Int            @default(0)
+  survivalTime    Int            @default(0) // in seconds
+  placement       Int?           // 1st, 2nd, 3rd, etc.
+
+  // ELO tracking
+  eloBeforeGame   Int
+  eloAfterGame    Int?
+  eloChange       Int?
+
+  // Prize tracking
+  prizeWon        BigInt?        // in microSTX
+  prizeTxId       String?
+
+  // Timestamps
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  game            Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, userId])
+  @@index([gameId])
+  @@index([userId])
+  @@index([placement])
+}
+
+// Blockchain transactions
+model Transaction {
+  id              String            @id @default(cuid())
+  txId            String            @unique
+
+  // Transaction details
+  type            TransactionType
+  amount          BigInt            // in microSTX
+  status          TransactionStatus @default(PENDING)
+
+  // Relations
+  userId          String?
+  gameId          String?
+
+  // Metadata
+  blockHeight     Int?
+  broadcasted     DateTime?
+  confirmed       DateTime?
+  failed          DateTime?
+  errorMessage    String?
+
+  // Timestamps
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  user            User?             @relation(fields: [userId], references: [id])
+  game            Game?             @relation(fields: [gameId], references: [id])
+
+  @@index([txId])
+  @@index([userId])
+  @@index([gameId])
+  @@index([status])
+  @@index([type])
+}
+
+// Achievement system
+model Achievement {
+  id              String            @id @default(cuid())
+  userId          String
+
+  // Achievement details
+  achievementType String            // e.g., "FIRST_WIN", "KILLER_STREAK", "HIGH_ROLLER"
+  title           String
+  description     String?
+
+  // Metadata
+  unlockedAt      DateTime          @default(now())
+  notified        Boolean           @default(false)
+
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementType])
+  @@index([userId])
+  @@index([achievementType])
+}
+
+// Enums
+enum GameStatus {
+  WAITING
+  ACTIVE
+  FINISHED
+  CANCELLED
+}
+
+enum TransactionType {
+  ENTRY_FEE
+  PRIZE_PAYOUT
+  HOUSE_FEE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  BROADCASTED
+  CONFIRMED
+  FAILED
+}
