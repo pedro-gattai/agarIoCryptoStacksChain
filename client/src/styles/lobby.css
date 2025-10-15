@@ -772,3 +772,214 @@
 .global-lobby-container {
   display: none;
 }
+
+/* ===================================
+   COUNTDOWN AND GAME STATUS
+   =================================== */
+
+.countdown-banner {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(252, 100, 50, 0.95) 0%, rgba(247, 147, 26, 0.95) 100%);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 20px 32px;
+  box-shadow: 0 12px 40px rgba(252, 100, 50, 0.5);
+  z-index: 100;
+  animation: slideDown 0.3s ease;
+  min-width: 350px;
+}
+
+@keyframes slideDown {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.countdown-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.countdown-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.countdown-value {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.countdown-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.countdown-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.8) 100%);
+  border-radius: 10px;
+  transition: width 0.5s linear;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+}
+
+/* Game Status Messages */
+.game-status-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(252, 100, 50, 0.1);
+  border: 2px solid rgba(252, 100, 50, 0.3);
+  border-radius: 12px;
+  padding: 16px 24px;
+  margin: 20px auto;
+  max-width: 500px;
+  animation: statusPulse 2s ease infinite;
+}
+
+.game-status-message.active {
+  background: rgba(255, 107, 107, 0.1);
+  border-color: rgba(255, 107, 107, 0.3);
+}
+
+.game-status-message.waiting {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.game-status-message svg {
+  color: #fc6432;
+  flex-shrink: 0;
+}
+
+.game-status-message.active svg {
+  color: #ff6b6b;
+}
+
+.game-status-message.waiting svg {
+  color: #10b981;
+}
+
+.game-status-text {
+  flex: 1;
+}
+
+.game-status-text strong {
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+  color: #ffffff;
+}
+
+.game-status-text span {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Play Button Status States */
+.play-button-massive.disabled {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  cursor: not-allowed;
+  animation: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.play-button-massive.disabled:hover {
+  transform: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.play-button-massive.waiting {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  animation: gradientShift 3s ease infinite, buttonPulse 1.5s ease-in-out infinite;
+}
+
+.button-status-text {
+  font-size: 0.8rem;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+  display: block;
+  margin-top: 4px;
+}
+
+/* ===================================
+   TRANSACTION STATUS UI
+   =================================== */
+
+.transaction-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px;
+}
+
+.transaction-status .loading-icon {
+  color: #fc6432;
+  animation: spin 1s linear infinite;
+}
+
+.transaction-message {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+  text-align: center;
+  animation: fadeInOut 2s ease infinite;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.transaction-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  background: rgba(231, 76, 60, 0.1);
+  border: 2px solid rgba(231, 76, 60, 0.3);
+  border-radius: 16px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.transaction-error svg {
+  color: #e74c3c;
+  filter: drop-shadow(0 4px 16px rgba(231, 76, 60, 0.4));
+}
+
+.transaction-error p {
+  color: #ffffff;
+  font-size: 1rem;
+  text-align: center;
+  margin: 8px 0 16px;
+}
+
+.transaction-error .play-button-massive {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  padding: 20px 40px;
+  font-size: 1.5rem;
+}

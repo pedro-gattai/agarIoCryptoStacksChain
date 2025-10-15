@@ -77,6 +77,8 @@ describe("Game Pool Contract Tests", () => {
           status: Cl.uint(0), // WAITING
           "start-time": Cl.uint(0),
           "end-time": Cl.uint(0),
+          "session-hash": Cl.none(),
+          "session-data-uri": Cl.none(),
         })
       );
     });
@@ -134,6 +136,8 @@ describe("Game Pool Contract Tests", () => {
           status: Cl.uint(0),
           "start-time": Cl.uint(0),
           "end-time": Cl.uint(0),
+          "session-hash": Cl.none(),
+          "session-data-uri": Cl.none(),
         })
       );
     });
@@ -173,6 +177,8 @@ describe("Game Pool Contract Tests", () => {
           status: Cl.uint(0),
           "start-time": Cl.uint(0),
           "end-time": Cl.uint(0),
+          "session-hash": Cl.none(),
+          "session-data-uri": Cl.none(),
         })
       );
     });
@@ -270,6 +276,8 @@ describe("Game Pool Contract Tests", () => {
           status: Cl.uint(1), // ACTIVE
           "start-time": Cl.uint(5),
           "end-time": Cl.uint(0),
+          "session-hash": Cl.none(),
+          "session-data-uri": Cl.none(),
         })
       );
     });
@@ -419,6 +427,8 @@ describe("Game Pool Contract Tests", () => {
           status: Cl.uint(2), // FINISHED
           "start-time": Cl.uint(7),
           "end-time": Cl.uint(8),
+          "session-hash": Cl.none(),
+          "session-data-uri": Cl.none(),
         })
       );
     });
@@ -545,6 +555,202 @@ describe("Game Pool Contract Tests", () => {
       );
 
       expect(afterId).toBeUint(1);
+    });
+  });
+
+  describe("session hash tracking", () => {
+    beforeEach(() => {
+      // Create game, have players join, start and end game
+      simnet.callPublicFn(
+        "game-pool",
+        "initialize-game-pool",
+        [Cl.uint(100000), Cl.uint(100)],
+        deployer
+      );
+      simnet.callPublicFn("game-pool", "join-game", [Cl.uint(0)], player1);
+      simnet.callPublicFn("game-pool", "join-game", [Cl.uint(0)], player2);
+      simnet.callPublicFn("game-pool", "join-game", [Cl.uint(0)], player3);
+      simnet.callPublicFn("game-pool", "start-game", [Cl.uint(0)], deployer);
+
+      // End game
+      const winners = Cl.list([
+        Cl.principal(player1),
+        Cl.principal(player2),
+        Cl.principal(player3),
+      ]);
+      simnet.callPublicFn(
+        "game-pool",
+        "end-game-and-distribute",
+        [Cl.uint(0), winners],
+        deployer
+      );
+    });
+
+    it("allows authority to record session hash after game ends", () => {
+      // Create a mock session hash (32 bytes)
+      const sessionHash = new Uint8Array(32).fill(0xAB);
+      const dataUri = Cl.some(Cl.stringUtf8("ipfs://QmTest123"));
+
+      const { result } = simnet.callPublicFn(
+        "game-pool",
+        "record-session-hash",
+        [Cl.uint(0), Cl.buffer(sessionHash), dataUri],
+        deployer
+      );
+
+      expect(result).toBeOk(Cl.bool(true));
+    });
+
+    it("stores session hash correctly", () => {
+      const sessionHash = new Uint8Array(32).fill(0xCD);
+
+      simnet.callPublicFn(
+        "game-pool",
+        "record-session-hash",
+        [Cl.uint(0), Cl.buffer(sessionHash), Cl.none()],
+        deployer
+      );
+
+      const { result } = simnet.callReadOnlyFn(
+        "game-pool",
+        "get-session-hash",
+        [Cl.uint(0)],
+        deployer
+      );
+
+      expect(result).toBeOk(Cl.some(Cl.buffer(sessionHash)));
+    });
+
+    it("verifies session hash correctly", () => {
+      const sessionHash = new Uint8Array(32).fill(0xEF);
+
+      simnet.callPublicFn(
+        "game-pool",
+        "record-session-hash",
+        [Cl.uint(0), Cl.buffer(sessionHash), Cl.none()],
+        deployer
+      );
+
+      // Verify with correct hash
+      const { result: correctResult } = simnet.callReadOnlyFn(
+        "game-pool",
+        "verify-session-hash",
+        [Cl.uint(0), Cl.buffer(sessionHash)],
+        deployer
+      );
+      expect(correctResult).toBeOk(Cl.bool(true));
+
+      // Verify with incorrect hash
+      const wrongHash = new Uint8Array(32).fill(0xFF);
+      const { result: wrongResult } = simnet.callReadOnlyFn(
+        "game-pool",
+        "verify-session-hash",
+        [Cl.uint(0), Cl.buffer(wrongHash)],
+        deployer
+      );
+      expect(wrongResult).toBeOk(Cl.bool(false));
+    });
+
+    it("fails if non-authority tries to record hash", () => {
+      const sessionHash = new Uint8Array(32).fill(0xAA);
+
+      const { result } = simnet.callPublicFn(
+        "game-pool",
+        "record-session-hash",
+        [Cl.uint(0), Cl.buffer(sessionHash), Cl.none()],
+        player1
+      );
+
+      expect(result).toBeErr(Cl.uint(401)); // ERR-NOT-AUTHORIZED
+    });
+
+    it("fails if game is not finished", () => {
+      // Create new game that hasn't finished
+      simnet.callPublicFn(
+        "game-pool",
+        "initialize-game-pool",
+        [Cl.uint(100000), Cl.uint(100)],
+        deployer
+      );
+      simnet.callPublicFn("game-pool", "join-game", [Cl.uint(1)], player1);
+      simnet.callPublicFn("game-pool", "start-game", [Cl.uint(1)], deployer);
+
+      const sessionHash = new Uint8Array(32).fill(0xBB);
+      const { result } = simnet.callPublicFn(
+        "game-pool",
+        "record-session-hash",
+        [Cl.uint(1), Cl.buffer(sessionHash), Cl.none()],
+        deployer
+      );
+
+      expect(result).toBeErr(Cl.uint(405)); // ERR-GAME-NOT-ACTIVE
+    });
+
+    it("can update session hash multiple times", () => {
+      const hash1 = new Uint8Array(32).fill(0x11);
+      const hash2 = new Uint8Array(32).fill(0x22);
+
+      // Record first hash
+      simnet.callPublicFn(
+        "game-pool",
+        "record-session-hash",
+        [Cl.uint(0), Cl.buffer(hash1), Cl.none()],
+        deployer
+      );
+
+      // Update with second hash
+      const { result } = simnet.callPublicFn(
+        "game-pool",
+        "record-session-hash",
+        [Cl.uint(0), Cl.buffer(hash2), Cl.none()],
+        deployer
+      );
+
+      expect(result).toBeOk(Cl.bool(true));
+
+      // Verify second hash is stored
+      const { result: verifyResult } = simnet.callReadOnlyFn(
+        "game-pool",
+        "verify-session-hash",
+        [Cl.uint(0), Cl.buffer(hash2)],
+        deployer
+      );
+      expect(verifyResult).toBeOk(Cl.bool(true));
+    });
+
+    it("stores data URI alongside hash", () => {
+      const sessionHash = new Uint8Array(32).fill(0x33);
+      const dataUri = "ipfs://QmSessionData123456";
+
+      simnet.callPublicFn(
+        "game-pool",
+        "record-session-hash",
+        [Cl.uint(0), Cl.buffer(sessionHash), Cl.some(Cl.stringUtf8(dataUri))],
+        deployer
+      );
+
+      const { result } = simnet.callReadOnlyFn(
+        "game-pool",
+        "get-game-pool",
+        [Cl.uint(0)],
+        deployer
+      );
+
+      // Verify game pool includes session data
+      expect(result).toBeSome(
+        Cl.tuple({
+          authority: Cl.principal(deployer),
+          "entry-fee": Cl.uint(100000),
+          "max-players": Cl.uint(100),
+          "current-players": Cl.uint(3),
+          "total-pool": Cl.uint(300000),
+          status: Cl.uint(2), // FINISHED
+          "start-time": Cl.uint(7),
+          "end-time": Cl.uint(8),
+          "session-hash": Cl.some(Cl.buffer(sessionHash)),
+          "session-data-uri": Cl.some(Cl.stringUtf8(dataUri)),
+        })
+      );
     });
   });
 });

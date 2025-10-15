@@ -15,7 +15,7 @@ export const CombinedProvider: React.FC<CombinedProviderProps> = ({
   serverUrl = 'http://localhost:3000' 
 }) => {
   return (
-    <WalletProvider autoConnect={true} network="testnet">
+    <WalletProvider autoConnect={false} network="testnet">
       <SocketProvider serverUrl={serverUrl}>
         <RoomProvider>
           <GameProvider>

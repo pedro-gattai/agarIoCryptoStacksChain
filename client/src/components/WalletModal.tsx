@@ -9,15 +9,8 @@ interface WalletModalProps {
 }
 
 export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onConnected }) => {
-  const { wallet, connecting, connected, connect, disconnect } = useWallet();
+  const { wallets, wallet, connecting, connected, select, connect, disconnect } = useWallet();
   const [error, setError] = useState<string | null>(null);
-
-  // Auto-trigger Stacks Connect when modal opens and wallet not connected
-  useEffect(() => {
-    if (isOpen && !connected && !connecting) {
-      handleConnect();
-    }
-  }, [isOpen]);
 
   // Auto-close modal when connection succeeds
   useEffect(() => {
@@ -25,23 +18,30 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onCon
       onConnected?.();
       onClose();
     }
-  }, [connected]);
+  }, [connected, isOpen, onConnected, onClose]);
 
   if (!isOpen) return null;
 
-  const handleConnect = () => {
+  const handleWalletSelect = async (walletName: string) => {
+    console.log('🔵 [WALLET_MODAL] Wallet selected:', walletName);
     try {
       setError(null);
-      connect();
+      console.log('🔵 [WALLET_MODAL] Calling connect()...');
+      // Stacks Connect will handle wallet selection - await the connection
+      await connect();
+      console.log('🔵 [WALLET_MODAL] Connect() completed successfully');
+      // The modal will auto-close when connection succeeds (handled by useEffect)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect wallet');
+      console.error('❌ [WALLET_MODAL] Error in handleWalletSelect:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
+      setError(errorMessage);
     }
   };
 
   const handleDisconnect = async () => {
     try {
       setError(null);
-      disconnect();
+      await disconnect();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disconnect wallet');
@@ -93,31 +93,33 @@ export const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose, onCon
           ) : (
             <div className="wallet-list">
               <p className="wallet-description">
-                {connecting ? 'Opening Stacks Connect...' : 'Click below to connect your Stacks wallet'}
+                Choose a wallet to connect to Agar.io Crypto
               </p>
 
-              {!connecting && (
+              {wallets.map((walletAdapter) => (
                 <button
-                  className="wallet-option primary-connect"
-                  onClick={handleConnect}
+                  key={walletAdapter.name}
+                  className={`wallet-option ${walletAdapter.readyState !== 'Installed' ? 'not-installed' : ''}`}
+                  onClick={() => handleWalletSelect(walletAdapter.name)}
+                  disabled={connecting || walletAdapter.readyState !== 'Installed'}
                 >
                   <div className="wallet-icon">
-                    <WalletLogo walletName="Hiro Wallet" size={40} />
+                    <WalletLogo walletName={walletAdapter.name} size={40} />
                   </div>
                   <div className="wallet-info">
-                    <span className="wallet-name">Connect with Stacks</span>
-                    <span className="wallet-status">Supports Hiro, Xverse, Leather</span>
+                    <span className="wallet-name">{walletAdapter.name}</span>
+                    {walletAdapter.readyState !== 'Installed' && (
+                      <span className="wallet-status">Not Installed</span>
+                    )}
+                    {connecting && wallet?.name === walletAdapter.name && (
+                      <span className="wallet-status">Connecting...</span>
+                    )}
                   </div>
+                  {walletAdapter.readyState !== 'Installed' && (
+                    <span className="install-prompt">Install</span>
+                  )}
                 </button>
-              )}
-
-              {connecting && (
-                <div className="connecting-state">
-                  <div className="spinner"></div>
-                  <p>Opening Stacks Connect...</p>
-                  <p className="small-text">Please check your wallet extension</p>
-                </div>
-              )}
+              ))}
 
               <div className="wallet-help">
                 <p>New to Stacks wallets?</p>

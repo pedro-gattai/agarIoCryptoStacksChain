@@ -12,13 +12,14 @@ interface SocketContextType {
   availableRooms: GameRoom[];
   gameUpdate: GameUpdate | null;
   error: string | null;
-  
+
   // Actions
   connect: () => Promise<void>;
   disconnect: () => void;
   createRoom: (entryFee: number, maxPlayers?: number) => void;
   joinRoom: (roomId: string, walletAddress?: string) => void;
   joinGlobalRoom: (walletAddress?: string) => void;
+  joinGlobalRoomWithPayment: (walletAddress: string, txId: string, entryFee: number) => void;
   getRooms: () => void;
   sendInput: (mousePosition: { x: number; y: number }, actions?: string[]) => void;
   split: () => void;
@@ -200,8 +201,24 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         setError(data.message);
       });
 
-      socketService.on('join_error', (data: { message: string }) => {
+      socketService.on('join_error', (data: { message: string; code?: string }) => {
         setError(data.message);
+        // Show specific error for payment failures
+        if (data.code === 'PAYMENT_VERIFICATION_FAILED') {
+          console.error('❌ Payment verification failed');
+        } else if (data.code === 'PAYMENT_PROCESSING_ERROR') {
+          console.error('❌ Payment processing error');
+        }
+      });
+
+      // Payment verification events
+      socketService.on('payment_verified', (data: { txId: string; entryFee: number; message: string }) => {
+        console.log('✅ Payment verified!', data);
+        setError(null);
+        // Payment successful, now join the room automatically
+
+        // The server should automatically handle the join after payment verification,
+        // but we'll wait for the join_success event
       });
 
       socketService.on('global_room_stats', (stats: { playersOnline: number; maxPlayers: number; queueLength: number; uptime: number }) => {
@@ -310,6 +327,15 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     socketService.joinGlobalRoom(walletAddress);
   };
 
+  const joinGlobalRoomWithPayment = (walletAddress: string, txId: string, entryFee: number) => {
+    if (!isConnected) {
+      setError('Not connected to server');
+      return;
+    }
+    console.log('💰 Emitting join_with_payment event', { walletAddress, txId, entryFee });
+    socketService.sendToServer('join_with_payment', { walletAddress, txId, entryFee });
+  };
+
   const getRooms = () => {
     if (!isConnected) {
       setError('Not connected to server');
@@ -349,6 +375,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     createRoom,
     joinRoom,
     joinGlobalRoom,
+    joinGlobalRoomWithPayment,
     getRooms,
     sendInput,
     split,

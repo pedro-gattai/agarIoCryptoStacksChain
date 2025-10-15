@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useSocket } from '../contexts/SocketContext';
-import { WalletModal } from './WalletModal';
 
 interface MainMenuProps {
   onEnterLobby: () => void;
@@ -16,8 +15,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
   onShowAchievements,
   onShowTournaments
 }) => {
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  const { connected, wallet, publicKey, balance, connecting } = useWallet();
+  const { connected, wallet, publicKey, balance, connecting, connect } = useWallet();
   const { isConnected: socketConnected, error: socketError } = useSocket();
 
   const menuItems = [
@@ -58,16 +56,16 @@ export const MainMenu: React.FC<MainMenuProps> = ({
 
   const handleMenuClick = (item: typeof menuItems[0]) => {
     if (item.requiresWallet && !connected) {
-      setShowWalletModal(true);
+      connect();
       return;
     }
-    
+
     if (item.requiresSocket && !socketConnected) {
       // Socket connection issue - show error or try to reconnect
       console.warn('Socket not connected. Please check connection.');
       return;
     }
-    
+
     item.action();
   };
 
@@ -183,9 +181,9 @@ export const MainMenu: React.FC<MainMenuProps> = ({
           <div className="wallet-prompt">
             <h3>Ready to Play?</h3>
             <p>Connect your Stacks wallet to start earning crypto while playing!</p>
-            <button 
+            <button
               className="wallet-connect-main-btn"
-              onClick={() => setShowWalletModal(true)}
+              onClick={connect}
               disabled={connecting}
             >
               <span className="wallet-icon">👛</span>
@@ -217,15 +215,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({
           </div>
         </div>
       </div>
-
-      <WalletModal
-        isOpen={showWalletModal}
-        onClose={() => setShowWalletModal(false)}
-        onConnected={() => {
-          setShowWalletModal(false);
-          console.log('Wallet connected from main menu!');
-        }}
-      />
     </div>
   );
 };

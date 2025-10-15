@@ -55,10 +55,9 @@ function AppContent() {
       )}
 
       {appState === 'lobby' && (
-        <GameLobby 
+        <GameLobby
           onGameStart={onGameStart}
           onShowLeaderboards={onShowLeaderboards}
-          onShowAchievements={onShowAchievements}
           onBackToMenu={onBackToLanding}
         />
       )}

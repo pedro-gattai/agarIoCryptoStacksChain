@@ -10,7 +10,7 @@ export class RoomService {
 
   private readonly MAX_PLAYERS = 100;
   private readonly WORLD_SIZE = 4000;
-  private readonly DEFAULT_ENTRY_FEE = 0.01;
+  private readonly DEFAULT_ENTRY_FEE = 1;
 
   constructor(gameService: GameService) {
     this.gameService = gameService;
@@ -63,7 +63,10 @@ export class RoomService {
         isBot: player.isBot || false
       });
 
-      console.log(`📡 RoomService: Broadcasted player_joined for ${player.playerId} (isBot: ${player.isBot || false})`);
+      // Only log real player joins to reduce spam
+      if (!player.isBot) {
+        console.log(`📡 RoomService: Player ${player.playerId.substring(0, 8)} joined`);
+      }
     }
   }
 

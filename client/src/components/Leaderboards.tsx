@@ -21,7 +21,6 @@ import {
   LogOut
 } from 'lucide-react';
 import { WalletLogo } from './WalletLogo';
-import { WalletModal } from './WalletModal';
 
 export interface PlayerStats {
   userId: string;
@@ -58,7 +57,8 @@ export const Leaderboards: React.FC<LeaderboardsProps> = ({ onClose }) => {
     connecting,
     wallet,
     balance,
-    disconnect: disconnectWallet
+    disconnect: disconnectWallet,
+    connect
   } = useWallet();
 
   const [activeTab, setActiveTab] = useState<LeaderboardType>('global');
@@ -68,7 +68,6 @@ export const Leaderboards: React.FC<LeaderboardsProps> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerStats | null>(null);
   const [totalPlayers, setTotalPlayers] = useState(0);
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [showWalletDropdown, setShowWalletDropdown] = useState(false);
 
   const playerRowRef = useRef<HTMLDivElement>(null);
@@ -422,7 +421,7 @@ export const Leaderboards: React.FC<LeaderboardsProps> = ({ onClose }) => {
           ) : (
             <button
               className="connect-wallet-btn-leaderboard"
-              onClick={() => setShowWalletModal(true)}
+              onClick={connect}
               disabled={connecting}
             >
               <Wallet size={18} strokeWidth={2.5} />
@@ -564,15 +563,6 @@ export const Leaderboards: React.FC<LeaderboardsProps> = ({ onClose }) => {
           </>
         )}
       </div>
-
-      <WalletModal
-        isOpen={showWalletModal}
-        onClose={() => setShowWalletModal(false)}
-        onConnected={() => {
-          setShowWalletModal(false);
-          console.log('Wallet connected successfully!');
-        }}
-      />
     </div>
   );
 };

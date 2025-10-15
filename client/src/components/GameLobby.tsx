@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 import { useWallet } from '../contexts/WalletContext';
-import { WalletModal } from './WalletModal';
 import { WalletLogo } from './WalletLogo';
-import { Gamepad2, Users, Play, Wallet, Loader2, ArrowLeft, BarChart3, LogOut, ExternalLink, Copy, ChevronDown } from 'lucide-react';
+import { Gamepad2, Users, Play, Wallet, Loader2, ArrowLeft, BarChart3, LogOut, ExternalLink, Copy, ChevronDown, AlertCircle } from 'lucide-react';
+import { getSocketService } from '../services/socketService';
+import { uintCV, makeStandardSTXPostCondition, FungibleConditionCode } from '@stacks/transactions';
 
 interface GameLobbyProps {
   onGameStart: () => void;
@@ -17,11 +18,18 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
     error,
     clearError,
     currentRoom,
-    joinGlobalRoom: socketJoinGlobalRoom
+    joinGlobalRoom: socketJoinGlobalRoom,
+    joinGlobalRoomWithPayment
   } = useSocket();
 
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [showWalletDropdown, setShowWalletDropdown] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [transactionStatus, setTransactionStatus] = useState<'idle' | 'signing' | 'processing' | 'verifying' | 'error'>('idle');
+  const [transactionError, setTransactionError] = useState<string | null>(null);
+  const [contractGameId, setContractGameId] = useState<number | null>(null);
+  const [blockchainGameStatus, setBlockchainGameStatus] = useState<'waiting' | 'active' | 'finished'>('waiting');
+  const [gameStartsAt, setGameStartsAt] = useState<number | null>(null);
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(0);
   const [gameStatus, setGameStatus] = useState({
     playersOnline: 0,
     maxPlayers: 100,
@@ -36,10 +44,110 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
     connecting,
     publicKey,
     balance,
-    disconnect: disconnectWallet
+    connect,
+    disconnect: disconnectWallet,
+    sendSTX,
+    callContractFunction
   } = useWallet();
 
   const walletDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Request and listen for contract game ID from multiple sources
+  useEffect(() => {
+    const socketService = getSocketService();
+
+    // Listen for contract game ID from dedicated event
+    const handleContractGameId = (data: { contractGameId: number | null }) => {
+      console.log('📥 [CONTRACT_ID] Received from contract_game_id event:', data.contractGameId);
+      setContractGameId(data.contractGameId);
+    };
+
+    // Listen for contract game ID from initial_room_status
+    const handleInitialStatus = (data: any) => {
+      if (data.contractGameId !== undefined) {
+        console.log('📥 [CONTRACT_ID] Received from initial_room_status:', data.contractGameId);
+        setContractGameId(data.contractGameId);
+      }
+    };
+
+    // Listen for contract game ID from join_success
+    const handleJoinSuccess = (data: any) => {
+      if (data.contractGameId !== undefined) {
+        console.log('📥 [CONTRACT_ID] Received from join_success:', data.contractGameId);
+        setContractGameId(data.contractGameId);
+      }
+    };
+
+    // Listen for game starting soon event (when first player joins)
+    const handleGameStartingSoon = (data: any) => {
+      console.log('⏰ [GAME_STATUS] Game starting soon!', data);
+      setGameStartsAt(data.startsAt);
+      setBlockchainGameStatus('waiting');
+    };
+
+    // Listen for blockchain game started event
+    const handleBlockchainGameStarted = (data: any) => {
+      console.log('🚀 [GAME_STATUS] Blockchain game started!', data);
+      setBlockchainGameStatus('active');
+      setGameStartsAt(null);
+      setCountdownSeconds(0);
+    };
+
+    // Listen for round ended event
+    const handleRoundEnded = (data: any) => {
+      console.log('🏁 [GAME_STATUS] Round ended!', data);
+      setBlockchainGameStatus('finished');
+    };
+
+    // Listen for round reset event
+    const handleRoundReset = (data: any) => {
+      console.log('🔄 [GAME_STATUS] Round reset!', data);
+      setBlockchainGameStatus('waiting');
+      setGameStartsAt(null);
+      setCountdownSeconds(0);
+    };
+
+    socketService.on('contract_game_id', handleContractGameId);
+    socketService.on('initial_room_status', handleInitialStatus);
+    socketService.on('join_success', handleJoinSuccess);
+    socketService.on('game_starting_soon', handleGameStartingSoon);
+    socketService.on('blockchain_game_started', handleBlockchainGameStarted);
+    socketService.on('round_ended', handleRoundEnded);
+    socketService.on('round_reset', handleRoundReset);
+
+    // Request the contract game ID explicitly
+    if (isConnected) {
+      console.log('📤 [CONTRACT_ID] Requesting contract game ID...');
+      socketService.sendToServer('get_contract_game_id', {});
+    }
+
+    return () => {
+      socketService.off('contract_game_id', handleContractGameId);
+      socketService.off('initial_room_status', handleInitialStatus);
+      socketService.off('join_success', handleJoinSuccess);
+      socketService.off('game_starting_soon', handleGameStartingSoon);
+      socketService.off('blockchain_game_started', handleBlockchainGameStarted);
+      socketService.off('round_ended', handleRoundEnded);
+      socketService.off('round_reset', handleRoundReset);
+    };
+  }, [isConnected]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (gameStartsAt && blockchainGameStatus === 'waiting') {
+      const interval = setInterval(() => {
+        const now = Date.now();
+        const remaining = Math.max(0, Math.floor((gameStartsAt - now) / 1000));
+        setCountdownSeconds(remaining);
+
+        if (remaining === 0) {
+          clearInterval(interval);
+        }
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [gameStartsAt, blockchainGameStatus]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -65,6 +173,11 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
         playersOnline: currentRoom.playerCount || prev.playersOnline
       }));
 
+      // Reset transaction status when entering game
+      setProcessingPayment(false);
+      setTransactionStatus('idle');
+      setTransactionError(null);
+
       setTimeout(() => {
         console.log('🚀 GameLobby: Auto-starting game after successful room join...');
         onGameStart();
@@ -89,20 +202,23 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
     socketJoinGlobalRoom(publicKey);
   };
 
-  const handlePlayNow = () => {
-    console.log('🎮 GameLobby: HandlePlayNow called', {
+  const handlePlayNow = async () => {
+    console.log('🎮 [PLAY_NOW] HandlePlayNow called', {
       connected,
       isConnected,
       inGame: gameStatus.inGame,
       hasCurrentRoom: !!currentRoom,
       publicKey,
+      contractGameId,
+      blockchainGameStatus,
+      countdownSeconds,
       timestamp: new Date().toISOString()
     });
 
     // Check wallet connection - ALWAYS required
     if (!connected) {
-      console.log('💳 GameLobby: Wallet not connected, showing modal');
-      setShowWalletModal(true);
+      console.log('💳 GameLobby: Wallet not connected, calling connect()');
+      connect(); // v7 uses callbacks, no await needed
       return;
     }
 
@@ -111,12 +227,92 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
       return;
     }
 
+    // Check blockchain game status
+    if (blockchainGameStatus === 'active') {
+      console.log('⏰ GameLobby: Game is ACTIVE, cannot join');
+      setTransactionError('Game in progress. Please wait for the next round.');
+      setTimeout(() => setTransactionError(null), 5000);
+      return;
+    }
+
+    if (blockchainGameStatus === 'finished') {
+      console.log('🏁 GameLobby: Game is FINISHED, waiting for new round');
+      setTransactionError('Game has ended. New round starting soon...');
+      setTimeout(() => setTransactionError(null), 5000);
+      return;
+    }
+
     if (currentRoom && currentRoom.id) {
       console.log('🎮 GameLobby: Already in room, starting game immediately...');
       onGameStart();
-    } else {
-      console.log('🌐 GameLobby: Attempting to join global room...');
-      joinGlobalRoom();
+      return;
+    }
+
+    // Start payment process via smart contract
+    try {
+      setProcessingPayment(true);
+      setTransactionStatus('signing');
+      setTransactionError(null);
+
+      // Check if we have contract game ID
+      if (contractGameId === null) {
+        throw new Error('Contract game not initialized. Please wait and try again.');
+      }
+
+      // Get the contract address and name from env
+      const contractAddress = process.env.REACT_APP_STACKS_CONTRACT_ADDRESS || 'ST1ZFTT97Z1BBTD5Y2JK7N1Y3MJ9SYCDN1F4803GZ';
+      const contractName = process.env.REACT_APP_STACKS_CONTRACT_NAME || 'game-pool';
+      const entryFee = 1; // Entry fee in STX
+
+      console.log('💰 GameLobby: Calling join-game contract function', {
+        contractAddress,
+        contractName,
+        contractGameId,
+        entryFee,
+        publicKey
+      });
+
+      // Create post condition to allow up to entryFee STX (includes gas fees)
+      // Using LessEqual instead of Equal to prevent post-condition failures
+      const postCondition = makeStandardSTXPostCondition(
+        publicKey!,
+        FungibleConditionCode.LessEqual,  // Allow gas fees
+        BigInt(entryFee * 1000000) // Maximum 1 STX (convert to microSTX)
+      );
+
+      console.log('💰 GameLobby: Post-condition set to LessEqual', entryFee, 'STX');
+
+      // Call the join-game contract function
+      const txId = await callContractFunction(
+        contractAddress,
+        contractName,
+        'join-game',
+        [uintCV(contractGameId)],
+        [postCondition]
+      );
+
+      console.log('✅ GameLobby: Contract call submitted:', txId);
+      setTransactionStatus('verifying');
+
+      // Join the game with payment proof
+      if (publicKey && txId) {
+        joinGlobalRoomWithPayment(publicKey, txId, entryFee);
+      } else {
+        throw new Error('Missing wallet address or transaction ID');
+      }
+
+    } catch (error) {
+      console.error('❌ GameLobby: Contract call failed:', error);
+      setTransactionStatus('error');
+      setTransactionError(error instanceof Error ? error.message : 'Contract call failed. Please try again.');
+
+      // Reset after 5 seconds
+      setTimeout(() => {
+        setTransactionStatus('idle');
+        setTransactionError(null);
+      }, 5000);
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -213,7 +409,7 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
           ) : (
             <button
               className="connect-wallet-btn"
-              onClick={() => setShowWalletModal(true)}
+              onClick={connect} // v7 uses callbacks, not async
               disabled={connecting}
             >
               <Wallet size={18} strokeWidth={2.5} />
@@ -245,7 +441,7 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
             <p className="play-subtitle">Link your Stacks wallet to join the battle and start earning rewards</p>
             <button
               className="wallet-connect-large"
-              onClick={() => setShowWalletModal(true)}
+              onClick={connect} // v7 uses callbacks, not async
               disabled={connecting}
             >
               <Wallet size={24} strokeWidth={2.5} />
@@ -266,14 +462,90 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
             <h1 className="arena-title">Global Arena</h1>
             <p className="arena-subtitle">Battle. Dominate. Earn.</p>
 
-            <button
-              className="play-button-massive"
-              onClick={handlePlayNow}
-              disabled={!isConnected || !connected}
-            >
-              <Play size={48} strokeWidth={3} fill="currentColor" />
-              <span>PLAY NOW</span>
-            </button>
+            {/* Countdown display when game is starting soon */}
+            {countdownSeconds > 0 && blockchainGameStatus === 'waiting' && (
+              <div className="countdown-banner">
+                <div className="countdown-timer">
+                  <span className="countdown-label">⏱️ Join Window Open</span>
+                  <span className="countdown-value">Game starts in {countdownSeconds}s</span>
+                </div>
+                <div className="countdown-bar">
+                  <div
+                    className="countdown-bar-fill"
+                    style={{ width: `${(countdownSeconds / 30) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Game status messages */}
+            {blockchainGameStatus === 'active' && (
+              <div className="game-status-message active">
+                <AlertCircle size={20} />
+                <div className="game-status-text">
+                  <strong>Game in Progress</strong>
+                  <span>Next round starts after current game ends (5 min rounds)</span>
+                </div>
+              </div>
+            )}
+
+            {blockchainGameStatus === 'finished' && (
+              <div className="game-status-message waiting">
+                <Loader2 size={20} className="loading-icon" />
+                <div className="game-status-text">
+                  <strong>Round Ended</strong>
+                  <span>New round starting soon...</span>
+                </div>
+              </div>
+            )}
+
+            {processingPayment ? (
+              <div className="transaction-status">
+                <Loader2 size={48} className="loading-icon" />
+                <div className="transaction-message">
+                  {transactionStatus === 'signing' && 'Waiting for wallet signature...'}
+                  {transactionStatus === 'processing' && 'Processing transaction...'}
+                  {transactionStatus === 'verifying' && 'Verifying payment...'}
+                </div>
+              </div>
+            ) : transactionError ? (
+              <div className="transaction-error">
+                <AlertCircle size={48} />
+                <p>{transactionError}</p>
+                <button
+                  className="play-button-massive"
+                  onClick={handlePlayNow}
+                  disabled={!isConnected || !connected}
+                >
+                  <Play size={48} strokeWidth={3} fill="currentColor" />
+                  <span>TRY AGAIN</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                className={`play-button-massive ${
+                  blockchainGameStatus === 'active' ? 'disabled' :
+                  blockchainGameStatus === 'finished' ? 'disabled' :
+                  countdownSeconds > 0 ? 'waiting' : ''
+                }`}
+                onClick={handlePlayNow}
+                disabled={!isConnected || !connected || processingPayment || blockchainGameStatus !== 'waiting'}
+              >
+                <Play size={48} strokeWidth={3} fill="currentColor" />
+                <span>
+                  {blockchainGameStatus === 'active' ? 'GAME IN PROGRESS' :
+                   blockchainGameStatus === 'finished' ? 'ROUND ENDED' :
+                   countdownSeconds > 0 ? `JOIN NOW (${countdownSeconds}s)` :
+                   'PLAY NOW'}
+                </span>
+                {blockchainGameStatus === 'active' && (
+                  <span className="button-status-text">Wait for next round</span>
+                )}
+                {blockchainGameStatus === 'finished' && (
+                  <span className="button-status-text">New round starting...</span>
+                )}
+              </button>
+            )}
 
             <div className="game-stats-inline">
               <div className="stat-inline">
@@ -282,7 +554,7 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
               </div>
               <div className="stat-divider">•</div>
               <div className="stat-inline">
-                <span>Entry: 0.01 STX</span>
+                <span>Entry: 1 STX</span>
               </div>
               <div className="stat-divider">•</div>
               <div className={`stat-inline status ${isConnected ? 'connected' : 'connecting'}`}>
@@ -315,15 +587,6 @@ export const GameLobby: React.FC<GameLobbyProps> = ({ onGameStart, onShowLeaderb
           </div>
         </div>
       )}
-
-      <WalletModal
-        isOpen={showWalletModal}
-        onClose={() => setShowWalletModal(false)}
-        onConnected={() => {
-          setShowWalletModal(false);
-          console.log('Wallet connected successfully!');
-        }}
-      />
     </div>
   );
 };

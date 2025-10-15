@@ -1,8 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { AppConfig, UserSession, showConnect, showSTXTransfer, disconnect } from '@stacks/connect';
-import { StacksTestnet } from '@stacks/network';
-import { makeSTXTokenTransfer, AnchorMode } from '@stacks/transactions';
+import {
+  AppConfig,
+  UserSession,
+  showConnect,
+  openSTXTransfer,
+  openContractCall
+} from '@stacks/connect';
+import { StacksTestnet, StacksMainnet } from '@stacks/network';
+import { PostConditionMode } from '@stacks/transactions';
 
 export interface StacksWallet {
   name: string;
@@ -33,6 +39,13 @@ interface WalletContextType {
   disconnect: () => void;
   select: (walletName: string) => void;
   sendSTX: (recipient: string, amount: number, memo?: string) => Promise<string>;
+  callContractFunction: (
+    contractAddress: string,
+    contractName: string,
+    functionName: string,
+    functionArgs: any[],
+    postConditions?: any[]
+  ) => Promise<string>;
   refreshBalance: () => Promise<void>;
 }
 
@@ -57,10 +70,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
   const [userData, setUserData] = useState<any>(null);
   const [connecting, setConnecting] = useState(false);
   const [balance, setBalance] = useState(0);
-  const [stacksNetwork] = useState(new StacksTestnet());
+  const [stacksNetwork] = useState(network === 'mainnet' ? new StacksMainnet() : new StacksTestnet());
 
   const isSignedIn = currentUserSession?.isUserSignedIn() || false;
-  const stxAddress = userData?.profile?.stxAddress?.testnet || null;
+  const stxAddress = userData?.profile?.stxAddress?.testnet || userData?.profile?.stxAddress?.mainnet || null;
 
   // Available Stacks wallets (Hiro, Xverse, Leather)
   const availableWallets: StacksWallet[] = [
@@ -78,17 +91,17 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
     if (currentUserSession.isUserSignedIn()) {
       const userData = currentUserSession.loadUserData();
       setUserData(userData);
-      console.log('User already signed in:', userData.profile.stxAddress);
+      console.log('✅ User already signed in:', userData.profile.stxAddress);
     } else if (currentUserSession.isSignInPending()) {
       setConnecting(true);
       currentUserSession.handlePendingSignIn()
         .then((userData) => {
           setUserData(userData);
           setConnecting(false);
-          console.log('Auto-connected user:', userData.profile.stxAddress);
+          console.log('✅ Auto-connected user:', userData.profile.stxAddress);
         })
         .catch((error) => {
-          console.error('Error handling pending sign in:', error);
+          console.error('❌ Error handling pending sign in:', error);
           setConnecting(false);
         });
     }
@@ -98,32 +111,33 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
     // Refresh balance when connected
     if (isSignedIn && stxAddress) {
       refreshBalance();
-      
+
       // Set up periodic balance updates
       const interval = setInterval(refreshBalance, 30000); // Every 30 seconds
       return () => clearInterval(interval);
     }
   }, [isSignedIn, stxAddress]);
 
-
   const connect = () => {
     if (connecting) return;
-    
+
     setConnecting(true);
+    console.log('🔵 [WALLET_CONTEXT] Calling showConnect() v7.10.0...');
+
     showConnect({
       appDetails: {
         name: 'AgarCoin',
-        icon: '/vite.svg'
+        icon: window.location.origin + '/vite.svg'
       },
       redirectTo: '/',
       onFinish: (data) => {
         setUserData(data.userSession.loadUserData());
         setConnecting(false);
-        console.log('Connected to Stacks wallet:', data.userSession.loadUserData().profile.stxAddress);
+        console.log('✅ Connected to Stacks wallet:', data.userSession.loadUserData().profile.stxAddress);
       },
       onCancel: () => {
         setConnecting(false);
-        console.log('User cancelled wallet connection');
+        console.log('⚠️ User cancelled wallet connection');
       },
       userSession: currentUserSession
     });
@@ -148,21 +162,57 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
     }
 
     return new Promise((resolve, reject) => {
-      showSTXTransfer({
+      console.log('💸 [WALLET_CONTEXT] Sending STX using openSTXTransfer...');
+
+      openSTXTransfer({
         recipient,
         amount: (amount * 1000000).toString(), // Convert STX to microSTX
         memo: memo || 'AgarCoin game payment',
         network: stacksNetwork,
-        appDetails: {
-          name: 'AgarCoin',
-          icon: '/vite.svg'
-        },
-        onFinish: (data) => {
-          console.log(`Sent ${amount} STX to ${recipient}`, data);
-          refreshBalance(); // Refresh balance after transaction
-          resolve(data.txId);
+        onFinish: (data: any) => {
+          console.log(`✅ Sent ${amount} STX to ${recipient}`, data);
+          setTimeout(() => refreshBalance(), 2000);
+          resolve(data.txId || data.txid);
         },
         onCancel: () => {
+          reject(new Error('Transaction cancelled by user'));
+        }
+      });
+    });
+  };
+
+  const callContractFunction = async (
+    contractAddress: string,
+    contractName: string,
+    functionName: string,
+    functionArgs: any[],
+    postConditions?: any[]
+  ): Promise<string> => {
+    if (!isSignedIn || !stxAddress) {
+      throw new Error('Wallet not connected');
+    }
+
+    return new Promise((resolve, reject) => {
+      console.log('📝 [WALLET_CONTEXT] Calling contract using openContractCall...');
+      console.log('Contract:', contractAddress, contractName, functionName);
+      console.log('Args:', functionArgs);
+      console.log('PostConditions:', postConditions);
+
+      openContractCall({
+        contractAddress,
+        contractName,
+        functionName,
+        functionArgs: functionArgs || [],
+        postConditions: postConditions || [],
+        postConditionMode: PostConditionMode.Deny,
+        network: stacksNetwork,
+        onFinish: (data: any) => {
+          console.log(`✅ Contract call ${functionName} successful:`, data);
+          setTimeout(() => refreshBalance(), 2000);
+          resolve(data.txId || data.txid);
+        },
+        onCancel: () => {
+          console.log(`❌ Contract call ${functionName} cancelled by user`);
           reject(new Error('Transaction cancelled by user'));
         }
       });
@@ -176,33 +226,31 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
     }
 
     try {
-      // Fetch real balance from Stacks API
-      const apiUrl = network === 'mainnet' 
+      const apiUrl = network === 'mainnet'
         ? 'https://api.hiro.so'
         : 'https://api.testnet.hiro.so';
-      
+
       const response = await fetch(`${apiUrl}/extended/v1/address/${stxAddress}/balances`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch balance: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      const stxBalance = parseInt(data.stx.balance) / 1000000; // Convert microSTX to STX
-      
+      const stxBalance = parseInt(data.stx.balance) / 1000000;
+
       setBalance(stxBalance);
       console.log(`Balance updated: ${stxBalance.toFixed(6)} STX`);
     } catch (error) {
       console.error('Failed to fetch balance:', error);
-      // Fallback to mock balance in case of API issues
       const mockBalance = Math.random() * 10 + 0.5;
       setBalance(mockBalance);
     }
   };
 
   const selectWallet = (walletName: string) => {
-    // For Stacks, wallet selection is handled by the Stacks Connect UI
     console.log('Wallet selection:', walletName);
+    connect();
   };
 
   const value: WalletContextType = {
@@ -223,6 +271,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
     disconnect: disconnectWallet,
     select: selectWallet,
     sendSTX,
+    callContractFunction,
     refreshBalance
   };
 

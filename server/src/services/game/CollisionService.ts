@@ -1,5 +1,6 @@
 import type { PlayerConnection, Position, Pellet, GlobalGameRoom } from 'shared';
 import { asGamePlayer, GAMEPLAY_CONSTANTS, Logger, NETWORK_CONSTANTS } from 'shared';
+import { gameSessionRecorder } from '../GameSessionRecorder';
 
 /**
  * CollisionService - Handles all collision detection logic
@@ -12,9 +13,11 @@ export class CollisionService {
    */
   public checkPlayerPelletCollisions(
     globalRoom: GlobalGameRoom,
-    pellets: Map<string, Pellet>
+    pellets: Map<string, Pellet>,
+    gameId?: string
   ): string[] {
     const eatenPellets: string[] = [];
+    let checkedCollisions = 0;
 
     for (const [playerId, player] of globalRoom.players) {
       const gamePlayer = asGamePlayer(player);
@@ -22,6 +25,7 @@ export class CollisionService {
       const logPrefix = isBot ? '🤖' : '👤';
 
       for (const [pelletId, pellet] of pellets) {
+        checkedCollisions++;
         const distance = this.getDistance(player.position, pellet.position);
         // FIXED: Increase hitbox to compensate for latency
         const combinedRadius = (gamePlayer.size + pellet.size) * NETWORK_CONSTANTS.LATENCY_COMPENSATION;
@@ -45,9 +49,9 @@ export class CollisionService {
 
           eatenPellets.push(pelletId);
 
-          // Only log for human players with significant changes
-          if (!isBot && scoreGain >= 30) {
-            Logger.debug(`Player ate pellet: size ${oldSize.toFixed(1)} → ${newSize.toFixed(1)}, score +${scoreGain}`);
+          // Record pellet eaten in session recorder (only for real players)
+          if (gameId && !player.isBot) {
+            gameSessionRecorder.recordPelletEaten(gameId, player.playerId);
           }
 
           break; // Only eat one pellet per tick
@@ -63,7 +67,8 @@ export class CollisionService {
    * Returns array of death events { killerId, victimId }
    */
   public checkPlayerVsPlayerCollisions(
-    globalRoom: GlobalGameRoom
+    globalRoom: GlobalGameRoom,
+    gameId?: string
   ): Array<{ killerId: string; victimId: string; killerNewSize: number; killerNewScore: number }> {
     const deathEvents: Array<{ killerId: string; victimId: string; killerNewSize: number; killerNewScore: number }> = [];
     const players = Array.from(globalRoom.players.values());
@@ -151,6 +156,11 @@ export class CollisionService {
           // Only log significant kills (non-bot kills bot, or PvP)
           if (!predatorIsBot || !preyIsBot) {
             Logger.info(`Kill: ${predator.playerId} (${predatorPlayer.size.toFixed(1)}) ate ${prey.playerId} (${preyPlayer.size.toFixed(1)}) → +${scoreGain}`);
+          }
+
+          // Record kill in session recorder (only if at least one is a real player)
+          if (gameId && (!predatorIsBot || !preyIsBot)) {
+            gameSessionRecorder.recordKill(gameId, predator.playerId, prey.playerId, predatorPlayer.mass);
           }
 
           deathEvents.push({

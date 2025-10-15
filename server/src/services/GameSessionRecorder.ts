@@ -263,10 +263,21 @@ export class GameSessionRecorder {
 
     // Convert Map to object for JSON serialization
     const sessionObj = {
-      ...session,
+      gameId: session.gameId,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      events: session.events,
+      finalStats: session.finalStats,
       players: Array.from(session.players.entries()).map(([id, data]) => ({
         playerId: id,
-        ...data
+        walletAddress: data.walletAddress,
+        joinTime: data.joinTime,
+        leaveTime: data.leaveTime,
+        kills: data.kills,
+        deaths: data.deaths,
+        pelletsEaten: data.pelletsEaten,
+        finalScore: data.finalScore,
+        maxMass: data.maxMass
       }))
     };
 

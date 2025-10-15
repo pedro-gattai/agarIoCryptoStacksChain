@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { GlobalRoomManager } from '../services/GlobalRoomManager';
 import type { PlayerInput } from 'shared';
 import { GameService } from '../services/GameService';
+import { GameContractService } from '../services/GameContractService';
 // import { BlockchainService } from '../services/BlockchainService'; // Conditionally imported
 import { StatsService } from '../services/StatsService';
 
@@ -9,32 +10,111 @@ export async function setupGlobalGameSocket(
   io: Server,
   gameService: GameService,
   blockchainService: any, // Make blockchain service optional for demo mode
-  statsService: StatsService
+  statsService: StatsService,
+  gameContractService: GameContractService | null = null
 ): Promise<{ cleanup: () => void }> {
-  const globalRoomManager = new GlobalRoomManager(io, gameService, blockchainService, statsService);
+  const globalRoomManager = new GlobalRoomManager(
+    io,
+    gameService,
+    blockchainService,
+    statsService,
+    gameContractService
+  );
   
   // Initialize the global room manager
   await globalRoomManager.initialize();
 
   // Handle new connections
   io.on('connection', (socket: Socket) => {
-    console.log(`🔌 [CONNECTION] Player connected: ${socket.id}`);
-    console.log(`🔌 [CONNECTION] Client address: ${socket.handshake.address}`);
-    console.log(`🔌 [CONNECTION] Headers:`, socket.handshake.headers);
-    console.log(`🔌 [CONNECTION] Total connected clients: ${io.sockets.sockets.size}`);
+    console.log(`🔌 [CONNECTION] Player connected: ${socket.id} (Total: ${io.sockets.sockets.size})`);
 
-    // Handle join global room request
+    // Handle join global room request (FREE - no payment required)
     socket.on('join_global_room', async (data: { walletAddress?: string }) => {
       console.log(`🌐 [JOIN_GLOBAL_ROOM] Player ${socket.id} requesting to join with wallet:`, data.walletAddress);
-      
+
       try {
         await globalRoomManager.handlePlayerJoin(socket, data);
-        
+
         console.log(`🎉 Player ${socket.id} join request processed`);
       } catch (error) {
         console.error(`❌ Error joining global room for ${socket.id}:`, error);
         socket.emit('join_error', {
           message: 'Failed to join game. Please try again.'
+        });
+      }
+    });
+
+    // Handle join with payment (PAID - requires STX payment)
+    socket.on('join_with_payment', async (data: {
+      walletAddress: string;
+      txId: string;
+      entryFee: number;
+    }) => {
+      console.log(`💰 [JOIN_WITH_PAYMENT] Player ${socket.id} joining with payment`);
+      console.log(`💰 Wallet: ${data.walletAddress}, TxID: ${data.txId}, Fee: ${data.entryFee} STX`);
+
+      try {
+        // CRITICAL: Check blockchain game status FIRST
+        const gameStatus = globalRoomManager.getBlockchainGameStatus();
+        console.log(`🎮 [JOIN_WITH_PAYMENT] Current blockchain game status: ${gameStatus}`);
+
+        if (gameStatus === 'active') {
+          console.warn(`⚠️ [JOIN_WITH_PAYMENT] Game is ACTIVE - rejecting join attempt`);
+          socket.emit('join_error', {
+            message: 'Game in progress. Please wait for the next round.',
+            code: 'GAME_IN_PROGRESS'
+          });
+          return;
+        }
+
+        if (gameStatus === 'finished') {
+          console.warn(`⚠️ [JOIN_WITH_PAYMENT] Game is FINISHED - rejecting join attempt`);
+          socket.emit('join_error', {
+            message: 'Round has ended. New round starting soon...',
+            code: 'ROUND_ENDED'
+          });
+          return;
+        }
+
+        // Verify transaction on blockchain
+        if (!blockchainService) {
+          throw new Error('Blockchain service not available');
+        }
+
+        // Check if transaction exists and is confirmed
+        console.log(`🔍 Verifying transaction ${data.txId}...`);
+        const txValid = await blockchainService.verifyTransaction(data.txId);
+
+        if (!txValid) {
+          console.error(`❌ Transaction ${data.txId} verification failed`);
+          socket.emit('join_error', {
+            message: 'Payment verification failed. Please try again or contact support.',
+            code: 'PAYMENT_VERIFICATION_FAILED'
+          });
+          return;
+        }
+
+        console.log(`✅ Transaction ${data.txId} verified successfully`);
+
+        // Transaction verified - allow player to join
+        await globalRoomManager.handlePlayerJoin(socket, {
+          walletAddress: data.walletAddress
+        });
+
+        // Send payment success event
+        socket.emit('payment_verified', {
+          txId: data.txId,
+          entryFee: data.entryFee,
+          message: 'Payment verified successfully'
+        });
+
+        console.log(`🎉 Player ${socket.id} joined with verified payment`);
+
+      } catch (error) {
+        console.error(`❌ Error processing paid join for ${socket.id}:`, error);
+        socket.emit('join_error', {
+          message: error instanceof Error ? error.message : 'Failed to process payment. Please try again.',
+          code: 'PAYMENT_PROCESSING_ERROR'
         });
       }
     });
@@ -104,6 +184,17 @@ export async function setupGlobalGameSocket(
         socket.emit('room_status', status);
       } catch (error) {
         console.error('Error getting room status:', error);
+      }
+    });
+
+    // Handle contract game ID request
+    socket.on('get_contract_game_id', () => {
+      try {
+        const contractGameId = globalRoomManager.getContractGameId();
+        socket.emit('contract_game_id', { contractGameId });
+        console.log(`📤 Sent contract game ID ${contractGameId} to ${socket.id}`);
+      } catch (error) {
+        console.error('Error getting contract game ID:', error);
       }
     });
 
@@ -192,10 +283,12 @@ export async function setupGlobalGameSocket(
       }
     });
 
-    // Send initial room status
+    // Send initial room status including contract game ID
     setTimeout(() => {
       const status = globalRoomManager.getRoomStats();
-      socket.emit('initial_room_status', status);
+      const contractGameId = globalRoomManager.getContractGameId();
+      socket.emit('initial_room_status', { ...status, contractGameId });
+      console.log(`📤 [INIT] Sent initial status with contractGameId: ${contractGameId} to ${socket.id}`);
     }, 1000);
   });
 

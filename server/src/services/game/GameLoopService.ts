@@ -11,6 +11,7 @@ export class GameLoopService {
   private collisionService: CollisionService;
   private pelletService: PelletService;
   private gameLoopInterval: NodeJS.Timeout | null = null;
+  private gameId: string | null = null;
 
   // REFACTORED: Use centralized constants
   private readonly TICK_RATE = GAMEPLAY_CONSTANTS.NETWORK.TICK_RATE;
@@ -22,12 +23,17 @@ export class GameLoopService {
     height: GAMEPLAY_CONSTANTS.WORLD.HEIGHT
   };
 
-  constructor(roomService: RoomService, botService: BotService) {
+  constructor(roomService: RoomService, botService: BotService, gameId?: string) {
     this.roomService = roomService;
     this.botService = botService;
     this.collisionService = new CollisionService();
     this.pelletService = new PelletService();
     this.pelletService.initializePellets();
+    this.gameId = gameId || null;
+  }
+
+  public setGameId(gameId: string): void {
+    this.gameId = gameId;
   }
 
   public startGameLoop(): void {
@@ -802,13 +808,6 @@ export class GameLoopService {
               }
             };
 
-            // Log split cells being sent in delta updates (for debugging)
-            const splitCellsInDelta = deltaUpdate.players.filter(p => p.isSplitCell);
-            if (splitCellsInDelta.length > 0) {
-              console.log(`📡 [DELTA] Sending ${splitCellsInDelta.length} split cells to ${socket.id}:`,
-                splitCellsInDelta.map(s => `${s.id.substring(0, 20)}... (size: ${s.size.toFixed(1)})`));
-            }
-
             socket.emit('game_update', deltaUpdate);
             deltaUpdates++;
           }
@@ -833,18 +832,7 @@ export class GameLoopService {
       }
     }
 
-    // Debug logging only when there are real players (not just bots)
-    const realPlayerCount = allPlayers.filter(p => !p.isBot).length;
-    const splitCellCount = allPlayers.filter(p => (p as any).isSplitCell).length;
-
-    if (realPlayerCount > 0 && now % 10000 < this.TICK_INTERVAL * 2) {
-      console.log(`📡 ${realPlayerCount} players, ${splitCellCount} split cells, ${this.pelletService.getPelletsCount()} pellets - broadcast: ${broadcastCount}/${playerSockets.size}`);
-    }
-
-    // Log split cells being sent (only if there's an issue)
-    if (splitCellCount > 0 && now % 30000 < this.TICK_INTERVAL) { // Every 30 seconds
-      console.log(`📡 [SPLIT] ${splitCellCount} active split cells in game`);
-    }
+    // Removed broadcast stats logging to reduce spam
   }
 
   private broadcastPlayerUpdate(playerId: string, playerData: any): void {
@@ -881,8 +869,6 @@ export class GameLoopService {
         socket.emit('pellet_removed', pelletRemoval);
       }
     }
-    
-    console.log(`📡 Broadcasted pellet removal: ${pelletId} to ${playerSockets.size} clients`);
   }
 
   private broadcastDeathEvent(deathData: {
@@ -973,6 +959,10 @@ export class GameLoopService {
   public getTickRate(): number {
     return this.TICK_RATE;
   }
+
+  public getPelletService(): PelletService {
+    return this.pelletService;
+  }
   
   private processCollisions(): void {
     const globalRoom = this.roomService.getGlobalRoom();
@@ -980,14 +970,18 @@ export class GameLoopService {
     // Check player-pellet collisions using CollisionService
     const eatenPellets = this.collisionService.checkPlayerPelletCollisions(
       globalRoom,
-      this.pelletService.getPellets()
+      this.pelletService.getPellets(),
+      this.gameId || undefined
     );
 
     // Remove eaten pellets
     this.pelletService.removePellets(eatenPellets);
 
     // Check player vs player collisions using CollisionService
-    const deathEvents = this.collisionService.checkPlayerVsPlayerCollisions(globalRoom);
+    const deathEvents = this.collisionService.checkPlayerVsPlayerCollisions(
+      globalRoom,
+      this.gameId || undefined
+    );
 
     // Handle death events
     for (const event of deathEvents) {

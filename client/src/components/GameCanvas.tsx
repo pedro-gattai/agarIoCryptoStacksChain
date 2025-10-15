@@ -3,6 +3,7 @@ import { GameEngine } from '../game/GameEngine';
 import type { GameConfig } from '../game/GameEngine';
 import { GameHUD } from './GameHUD';
 import { GameOverModal } from './GameOverModal';
+import RoundEndModal from './RoundEndModal';
 import { useSocket } from '../contexts/SocketContext';
 import { getSocketService } from '../services/socketService';
 import { gameEngineManager } from '../services/GameEngineManager';
@@ -34,7 +35,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const gameEngineRef = useRef<GameEngine | null>(null);
   const socketService = getSocketService();
-  
+
   // Simple instance ID for debugging
   const instanceId = useMemo(() => {
     canvasIdCounter++;
@@ -42,12 +43,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     console.log(`🎮 [CANVAS_${id}] Creating GameCanvas instance (using GameEngineManager)`);
     return id;
   }, []);
-  
+
   const isInitializedRef = useRef(false);
-  
+
   // Socket context for multiplayer
   const { gameUpdate, sendInput, isConnected } = useSocket();
-  
+
   // Game state for HUD
   const [localPlayer, setLocalPlayer] = useState<HUDPlayer | null>(null);
   const [leaderboard, setLeaderboard] = useState<HUDPlayer[]>([]);
@@ -62,6 +63,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     survivalTime: 0,
     rank: 1,
     killedBy: undefined as string | undefined
+  });
+
+  // Round End modal state
+  const [isRoundEnd, setIsRoundEnd] = useState(false);
+  const [roundEndData, setRoundEndData] = useState({
+    playerRank: 0,
+    playerScore: 0,
+    playerPrize: 0,
+    winners: [] as Array<{ position: number; playerId: string; score: number; prize: number }>
   });
 
   // Initialize game using GameEngineManager singleton
@@ -221,7 +231,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     setIsGameOver(false);
 
     // FIXED: Notify server about respawn request (use correct event name)
-    socketService.emit('request_respawn', {});
+    socketService.sendToServer('request_respawn', {});
 
     // Reset local game state
     const gameEngine = gameEngineManager.getGameEngine();
@@ -240,7 +250,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     setIsGameOver(false);
 
     // Emit leave_game event to properly clean up on server
-    socketService.emit('leave_game', {
+    socketService.sendToServer('leave_game', {
       playerId: socketService.getSocket()?.id
     });
 
@@ -293,6 +303,50 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     return () => clearInterval(deathCheckInterval);
   }, [isGameOver, leaderboard]);
 
+  // Listen for force_disconnect (round ended)
+  useEffect(() => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+
+    const handleForceDisconnect = (data: any) => {
+      console.log('🏁 [GameCanvas] Round ended - force disconnect received:', data);
+
+      // Show round end modal with results
+      setRoundEndData({
+        playerRank: data.playerRank || 0,
+        playerScore: data.playerScore || 0,
+        playerPrize: data.playerPrize || 0,
+        winners: data.winners || []
+      });
+      setIsRoundEnd(true);
+
+      // Close game over modal if it's open
+      setIsGameOver(false);
+    };
+
+    socket.on('force_disconnect', handleForceDisconnect);
+
+    return () => {
+      socket.off('force_disconnect', handleForceDisconnect);
+    };
+  }, [socketService]);
+
+  // Round End handlers
+  const handlePlayAgain = () => {
+    setIsRoundEnd(false);
+    // Navigate back to lobby to join again
+    if (onReturnToLobby) {
+      onReturnToLobby();
+    }
+  };
+
+  const handleRoundEndReturnToLobby = () => {
+    setIsRoundEnd(false);
+    if (onReturnToLobby) {
+      onReturnToLobby();
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
@@ -332,6 +386,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         killedBy={gameOverData.killedBy}
         onRespawn={handleRespawn}
         onReturnToLobby={handleReturnToLobby}
+      />
+
+      {/* Round End Modal */}
+      <RoundEndModal
+        isOpen={isRoundEnd}
+        playerRank={roundEndData.playerRank}
+        playerScore={roundEndData.playerScore}
+        playerPrize={roundEndData.playerPrize}
+        winners={roundEndData.winners}
+        onPlayAgain={handlePlayAgain}
+        onReturnToLobby={handleRoundEndReturnToLobby}
       />
     </div>
   );

@@ -968,7 +968,7 @@ export class GameEngine {
         // Mark as split cell for rendering purposes
         (newPlayer as any).isSplitCell = isSplitCell;
         (newPlayer as any).parentPlayerId = parentPlayerId;
-        (newPlayer as any).canMergeAt = serverPlayer.canMergeAt;
+        (newPlayer as any).canMergeAt = (serverPlayer as any).canMergeAt;
 
         this.state.players.push(newPlayer);
 

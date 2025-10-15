@@ -269,12 +269,16 @@ export class GameService {
       // Update stats
       this.statsService.updatePlayerStats(gameResults);
 
-      // Check for achievements
-      game.players.forEach(player => {
-        const achievements = this.statsService!.checkAchievements(player.id);
-        if (achievements.length > 0) {
-          console.log(`Player ${player.id} unlocked achievements:`, achievements);
-          // Emit achievement notifications via socket
+      // Check for achievements (sync operation)
+      game.players.forEach((player) => {
+        try {
+          const achievements = this.statsService!.checkAchievements(player.id);
+          if (achievements.length > 0) {
+            console.log(`Player ${player.id} unlocked achievements:`, achievements);
+            // Emit achievement notifications via socket
+          }
+        } catch (error) {
+          console.error(`Error checking achievements for ${player.id}:`, error);
         }
       });
     }

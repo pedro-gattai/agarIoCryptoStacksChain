@@ -228,7 +228,10 @@ export class SocketService {
       'player_respawned',
       'you_died',
       'room_status',
-      'split_merged'
+      'split_merged',
+      // Contract/Payment events
+      'contract_game_id',
+      'payment_verified'
     ];
 
     events.forEach(event => {
@@ -306,6 +309,22 @@ export class SocketService {
 
   playerReady(): void {
     this.socket?.emit('player_ready');
+  }
+
+  // Generic method to send events to server
+  sendToServer(event: string, data?: any): void {
+    if (!this.socket) {
+      console.warn(`❌ [SOCKET_SERVICE] Cannot send '${event}' - socket not initialized`);
+      return;
+    }
+
+    if (!this.isConnected) {
+      console.warn(`❌ [SOCKET_SERVICE] Cannot send '${event}' - not connected`);
+      return;
+    }
+
+    console.log(`📤 [SOCKET_SERVICE] Sending '${event}' to server`, data);
+    this.socket.emit(event, data);
   }
 
   // Getters

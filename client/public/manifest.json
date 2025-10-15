@@ -1,0 +1,12 @@
+{
+  "name": "Agar.io Crypto",
+  "start_url": "http://localhost:5173",
+  "description": "Play. Earn. HODL.",
+  "icons": [
+    {
+      "src": "http://localhost:5173/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

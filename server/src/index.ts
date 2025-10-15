@@ -3,12 +3,17 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
+import path from 'path';
 import { GameService } from './services/GameService';
 import { StatsService } from './services/StatsService';
+import { GameContractService } from './services/GameContractService';
 import { setupGlobalGameSocket } from './sockets/globalGameSocket';
 import { Logger, LogLevel } from 'shared';
+import { gameSessionRecorder } from './services/GameSessionRecorder';
+import { gameValidationService } from './services/GameValidationService';
 
-dotenv.config();
+// Load environment variables from server/.env
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 // Configure Logger based on environment
 const isDevelopment = process.env.NODE_ENV !== 'production';
@@ -51,11 +56,19 @@ const statsService = new StatsService();
 
 // Initialize blockchain service only if not in demo mode
 let blockchainService: any = null;
+let gameContractService: GameContractService | null = null;
+
 if (!DEMO_MODE) {
-  console.log('🔗 Initializing blockchain service...');
+  console.log('🔗 Initializing blockchain services...');
   try {
     const { BlockchainService } = require('./services/BlockchainService');
     blockchainService = new BlockchainService();
+
+    // Create GameContractService
+    gameContractService = new GameContractService(gameService);
+    gameService.setContractService(gameContractService);
+
+    console.log('✅ Blockchain services initialized');
   } catch (error: any) {
     console.warn('⚠️  Blockchain service failed to load, continuing in demo mode:', error?.message || error);
   }
@@ -74,7 +87,13 @@ let globalCleanup: (() => void) | null = null;
 
     // Socket setup - Global Room System
     console.log('🔄 Initializing Global Room System...');
-    const { cleanup } = await setupGlobalGameSocket(io, gameService, blockchainService, statsService);
+    const { cleanup } = await setupGlobalGameSocket(
+      io,
+      gameService,
+      blockchainService,
+      statsService,
+      gameContractService
+    );
     globalCleanup = cleanup;
     console.log('✅ Global Room System initialized');
 
@@ -246,6 +265,162 @@ app.get('/api/stats/:playerId', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch player stats' });
+  }
+});
+
+// Replay & Session Verification API endpoints
+// Critical for betting/wagering scenarios - provides proof of fair play
+
+/**
+ * Get full replay data for a game session
+ * Returns complete event log, player actions, and final stats
+ * Use case: Allow players to review game for disputes in betting scenarios
+ */
+app.get('/api/game/:gameId/replay', (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const sessionJSON = gameSessionRecorder.getSessionJSON(gameId);
+
+    if (!sessionJSON) {
+      return res.status(404).json({
+        error: 'Replay not found',
+        message: `No replay data available for game ${gameId}. Session may have expired or never existed.`
+      });
+    }
+
+    // Return raw JSON that can be used to replay the game
+    res.setHeader('Content-Type', 'application/json');
+    res.send(sessionJSON);
+  } catch (error) {
+    Logger.error('[API] Error fetching replay:', error);
+    res.status(500).json({ error: 'Failed to fetch replay data' });
+  }
+});
+
+/**
+ * Get session hash for verification
+ * Returns cryptographic hash of session data that's stored on blockchain
+ * Use case: Verify game integrity - compare local hash with on-chain hash
+ */
+app.get('/api/game/:gameId/hash', (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const sessionHash = gameSessionRecorder.generateSessionHash(gameId);
+
+    if (!sessionHash) {
+      return res.status(404).json({
+        error: 'Session not found',
+        message: `No session data available for game ${gameId}`
+      });
+    }
+
+    const session = gameSessionRecorder.getSession(gameId);
+
+    res.json({
+      gameId,
+      sessionHash,
+      hashAlgorithm: 'SHA-256',
+      sessionMetadata: {
+        startTime: session?.startTime,
+        endTime: session?.endTime,
+        totalEvents: session?.events.length,
+        totalPlayers: session?.players.size,
+        finalStats: session?.finalStats
+      },
+      verificationInstructions: {
+        blockchain: 'Stacks Testnet',
+        contract: `${process.env.STACKS_CONTRACT_ADDRESS}.${process.env.STACKS_CONTRACT_NAME}`,
+        function: 'verify-session-hash',
+        explorer: `https://explorer.hiro.so/?chain=testnet`
+      }
+    });
+  } catch (error) {
+    Logger.error('[API] Error generating session hash:', error);
+    res.status(500).json({ error: 'Failed to generate session hash' });
+  }
+});
+
+/**
+ * Get session summary (lightweight version)
+ * Returns basic stats without full event log
+ * Use case: Quick overview for UI display
+ */
+app.get('/api/game/:gameId/summary', (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const session = gameSessionRecorder.getSession(gameId);
+
+    if (!session) {
+      return res.status(404).json({
+        error: 'Session not found',
+        message: `No session data available for game ${gameId}`
+      });
+    }
+
+    // Convert players Map to array for JSON serialization
+    const playersArray = Array.from(session.players.values());
+
+    res.json({
+      gameId: session.gameId,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      duration: session.endTime ? session.endTime - session.startTime : null,
+      totalPlayers: session.players.size,
+      totalEvents: session.events.length,
+      players: playersArray.map(player => ({
+        playerId: player.playerId,
+        walletAddress: player.walletAddress,
+        kills: player.kills,
+        deaths: player.deaths,
+        finalScore: player.finalScore,
+        maxMass: player.maxMass
+      })),
+      finalStats: session.finalStats
+    });
+  } catch (error) {
+    Logger.error('[API] Error fetching session summary:', error);
+    res.status(500).json({ error: 'Failed to fetch session summary' });
+  }
+});
+
+/**
+ * Validate a game session for fairness
+ * Returns validation result with risk assessment
+ * Use case: Verify game wasn't cheated before accepting bet results
+ */
+app.get('/api/game/:gameId/validate', (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const session = gameSessionRecorder.getSession(gameId);
+
+    if (!session) {
+      return res.status(404).json({
+        error: 'Session not found',
+        message: `No session data available for game ${gameId}`
+      });
+    }
+
+    // Validate session
+    const validation = gameValidationService.validateSession(session);
+
+    // Generate audit log if requested
+    const includeAuditLog = req.query.audit === 'true';
+    const auditLog = includeAuditLog
+      ? gameValidationService.generateAuditLog(session, validation)
+      : undefined;
+
+    res.json({
+      gameId,
+      validation,
+      auditLog,
+      timestamp: new Date().toISOString(),
+      message: validation.isValid
+        ? 'Session passed validation checks'
+        : 'Session failed validation - suspicious activity detected'
+    });
+  } catch (error) {
+    Logger.error('[API] Error validating session:', error);
+    res.status(500).json({ error: 'Failed to validate session' });
   }
 });
 

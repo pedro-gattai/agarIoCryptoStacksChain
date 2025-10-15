@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 import { useSocket } from '../contexts/SocketContext';
-import { WalletModal } from './WalletModal';
 import { WalletLogo } from './WalletLogo';
 import { TokenTicker } from './TokenTicker';
 import { InteractiveRoadmap } from './InteractiveRoadmap';
@@ -22,7 +21,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onShowAchievements,
   onShowTournaments
 }) => {
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [comingSoonConfig, setComingSoonConfig] = useState({
     title: "Coming Soon!",
@@ -33,7 +31,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showWalletDropdown, setShowWalletDropdown] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
-  const { connected, wallet, balance, connecting, stxAddress, disconnect } = useWallet();
+  const { connected, wallet, balance, connecting, stxAddress, disconnect, connect } = useWallet();
   const { isConnected: socketConnected } = useSocket();
   const walletDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -188,7 +186,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             ) : (
               <button
                 className="connect-wallet-nav"
-                onClick={() => setShowWalletModal(true)}
+                onClick={connect}
                 disabled={connecting}
               >
                 <Wallet size={18} strokeWidth={2} />
@@ -254,7 +252,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             ) : (
               <button
                 className="mobile-connect-wallet"
-                onClick={() => setShowWalletModal(true)}
+                onClick={connect}
                 disabled={connecting}
               >
                 <Wallet size={20} strokeWidth={2} />
@@ -479,15 +477,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
       </footer>
-
-      {/* Wallet Modal */}
-      <WalletModal
-        isOpen={showWalletModal}
-        onClose={() => setShowWalletModal(false)}
-        onConnected={() => {
-          setShowWalletModal(false);
-        }}
-      />
 
       {/* Coming Soon Modal */}
       <ComingSoonModal

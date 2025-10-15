@@ -34,7 +34,9 @@
     total-pool: uint,
     status: uint,
     start-time: uint,
-    end-time: uint
+    end-time: uint,
+    session-hash: (optional (buff 32)),
+    session-data-uri: (optional (string-utf8 256))
   }
 )
 
@@ -57,7 +59,7 @@
     (
       (game-id (var-get next-game-id))
     )
-    (map-set game-pools 
+    (map-set game-pools
       { game-id: game-id }
       {
         authority: tx-sender,
@@ -67,7 +69,9 @@
         total-pool: u0,
         status: GAME-STATUS-WAITING,
         start-time: u0,
-        end-time: u0
+        end-time: u0,
+        session-hash: none,
+        session-data-uri: none
       }
     )
     (var-set next-game-id (+ game-id u1))
@@ -172,6 +176,35 @@
   )
 )
 
+;; Record session hash after game ends (for proof of fair play)
+(define-public (record-session-hash
+  (game-id uint)
+  (hash (buff 32))
+  (data-uri (optional (string-utf8 256))))
+  (let
+    (
+      (game-pool (unwrap! (map-get? game-pools { game-id: game-id }) ERR-GAME-NOT-FOUND))
+    )
+    ;; Check authorization
+    (asserts! (is-eq tx-sender (get authority game-pool)) ERR-NOT-AUTHORIZED)
+    ;; Can only record hash for finished games
+    (asserts! (is-eq (get status game-pool) GAME-STATUS-FINISHED) ERR-GAME-NOT-ACTIVE)
+
+    ;; Update game with session hash
+    (map-set game-pools
+      { game-id: game-id }
+      (merge game-pool
+        {
+          session-hash: (some hash),
+          session-data-uri: data-uri
+        }
+      )
+    )
+
+    (ok true)
+  )
+)
+
 ;; Private Functions
 
 
@@ -233,7 +266,7 @@
 )
 
 (define-read-only (calculate-prizes (total-pool uint))
-  (let 
+  (let
     (
       (house-fee (/ (* total-pool HOUSE-FEE-PERCENTAGE) u100))
       (prize-pool (- total-pool house-fee))
@@ -245,6 +278,24 @@
       second-place: (/ (* prize-pool u30) u100),
       third-place: (/ (* prize-pool u20) u100)
     }
+  )
+)
+
+(define-read-only (get-session-hash (game-id uint))
+  (match (map-get? game-pools { game-id: game-id })
+    game-pool (ok (get session-hash game-pool))
+    ERR-GAME-NOT-FOUND
+  )
+)
+
+(define-read-only (verify-session-hash (game-id uint) (hash (buff 32)))
+  (match (map-get? game-pools { game-id: game-id })
+    game-pool
+      (match (get session-hash game-pool)
+        stored-hash (ok (is-eq stored-hash hash))
+        (ok false)
+      )
+    ERR-GAME-NOT-FOUND
   )
 )
 
