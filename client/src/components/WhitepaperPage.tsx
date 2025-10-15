@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-import { FileDown, Home, ChevronRight } from 'lucide-react';
+import { Home, ChevronRight } from 'lucide-react';
 import '../styles/whitepaper.css';
 
 export const WhitepaperPage: React.FC = () => {
@@ -43,6 +43,7 @@ export const WhitepaperPage: React.FC = () => {
     const handleScroll = () => {
       const scrollPosition = window.scrollY + 150;
 
+      // Update active section
       for (const section of tableOfContents) {
         const element = document.getElementById(section.id);
         if (element) {
@@ -69,16 +70,6 @@ export const WhitepaperPage: React.FC = () => {
     }
   };
 
-  const handleDownload = () => {
-    // Download the markdown file
-    const link = document.createElement('a');
-    link.href = '/WHITEPAPER.md';
-    link.download = 'AgarCrypto_Whitepaper_v1.0.md';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <div className="whitepaper-page">
       {/* Header */}
@@ -93,25 +84,14 @@ export const WhitepaperPage: React.FC = () => {
             <span>Whitepaper</span>
           </div>
 
-          {/* Title and Download */}
-          <div className="whitepaper-header-top">
-            <div className="whitepaper-title-section">
-              <h1>AgarCrypto Whitepaper</h1>
-              <p className="whitepaper-version">Version 1.0 | January 2025</p>
+          {/* Title Section */}
+          <div className="whitepaper-title-section">
+            <h1 className="whitepaper-title">AgarCrypto: Decentralized Wagering Infrastructure for Competitive Gaming</h1>
+            <div className="whitepaper-meta">
+              <span>Version 1.0</span>
+              <span className="meta-divider">•</span>
+              <span>January 2025</span>
             </div>
-
-            <button className="whitepaper-download-btn" onClick={handleDownload}>
-              <FileDown size={20} />
-              Download PDF
-            </button>
-          </div>
-
-          {/* Abstract */}
-          <div className="whitepaper-abstract">
-            AgarCrypto introduces a decentralized infrastructure for trustless wagering in competitive
-            multiplayer games, built on the Stacks blockchain. By leveraging smart contract escrow,
-            cryptographic verification, and automated prize distribution, we eliminate the fundamental
-            trust problem that has plagued peer-to-peer gaming wagers.
           </div>
         </div>
       </header>
@@ -120,7 +100,10 @@ export const WhitepaperPage: React.FC = () => {
       <div className="whitepaper-layout">
         {/* Table of Contents Sidebar */}
         <aside className="whitepaper-toc">
-          <h3>Table of Contents</h3>
+          <div className="toc-header">
+            <h3>Contents</h3>
+          </div>
+
           <nav>
             <ul>
               {tableOfContents.map((section) => (

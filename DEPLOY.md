@@ -32,7 +32,32 @@ Este projeto está configurado para usar **Stacks Testnet** mesmo em produção.
 3. Selecione **"Deploy from GitHub repo"**
 4. Escolha: `pedro-gattai/agarIoCryptoStacksChain`
 
-### 1.2. Adicionar PostgreSQL Database
+### 1.2. ⚠️ IMPORTANTE: Remover Serviços Auto-Detectados
+
+**Railway detecta automaticamente monorepos** e pode criar 3 serviços:
+- `@agar-crypto/database` ❌ (não é necessário)
+- `client` ❌ (vai para Cloudflare Pages)
+- `@agar-crypto/server` ✅ (mantenha este)
+
+**Ação necessária:**
+
+1. **Deletar serviço "client"**:
+   - Clique no card do serviço "client"
+   - Settings → Danger → **"Delete Service"**
+   - Confirme a remoção
+
+2. **Deletar serviço "@agar-crypto/database"** (se existir):
+   - Clique no card do serviço "@agar-crypto/database"
+   - Settings → Danger → **"Delete Service"**
+   - Confirme a remoção
+
+3. **Manter apenas "@agar-crypto/server"**:
+   - Este é o único serviço de aplicação que você precisa
+   - Não delete este!
+
+**Resultado esperado:** Apenas 1 serviço de aplicação no Railway.
+
+### 1.3. Adicionar PostgreSQL Database
 
 1. No projeto Railway, clique em **"+ New"**
 2. Selecione **"Database"** → **"PostgreSQL"**
@@ -45,11 +70,11 @@ Este projeto está configurado para usar **Stacks Testnet** mesmo em produção.
 
 ### 2.1. Build Configuration
 
-Clique no serviço do backend → **Settings** → Configure:
+Clique no serviço do backend (`@agar-crypto/server`) → **Settings** → Configure:
 
 **Root Directory**: `server`
 
-**Build Command**:
+**Build Command** (ou usar `railway.json` - veja abaixo):
 ```bash
 cd ../shared && npm install && npm run build && cd ../server && npm install && npm run build && npx prisma generate && npx prisma migrate deploy
 ```
@@ -60,6 +85,8 @@ node dist/index.js
 ```
 
 **Watch Paths**: `server/**`, `shared/**`
+
+**💡 Dica:** O projeto já inclui `server/railway.json` com essas configurações. Railway detecta automaticamente e usa essas configurações, então você não precisa configurar manualmente no dashboard (a menos que queira sobrescrever).
 
 ### 2.2. Environment Variables
 
@@ -372,6 +399,22 @@ const io = new Server(server, {
 cd ../shared && npm install && npm run build && cd ../client
 ```
 
+### "Railway detectou 3 serviços (client, database, server)"
+
+**Causa:** Railway auto-detecta monorepos e cria serviços para cada workspace
+
+**Solução:**
+1. Deletar manualmente os serviços "client" e "@agar-crypto/database"
+2. Manter apenas "@agar-crypto/server"
+3. Adicionar PostgreSQL como Database Service (não workspace)
+4. Configurar Root Directory para `server`
+
+**Por que isso acontece?**
+- Railway detecta o `package.json` na raiz com workspaces
+- Tenta criar serviços para cada package
+- Mas você quer apenas o backend no Railway
+- Frontend vai para Cloudflare Pages (grátis)
+
 ---
 
 # PARTE 8: Migração Futura para Mainnet
@@ -416,7 +459,10 @@ VITE_STACKS_NETWORK=mainnet
 
 **Configuração Inicial (uma vez):**
 - [ ] Criar projeto Railway
-- [ ] Adicionar PostgreSQL no Railway
+- [ ] ⚠️ Deletar serviços indesejados (client e @agar-crypto/database)
+- [ ] Manter apenas serviço @agar-crypto/server
+- [ ] Adicionar PostgreSQL Database no Railway
+- [ ] Configurar Root Directory do server para `server`
 - [ ] Configurar variáveis de ambiente Railway
 - [ ] Criar projeto Cloudflare Pages
 - [ ] Configurar variáveis de ambiente Cloudflare
