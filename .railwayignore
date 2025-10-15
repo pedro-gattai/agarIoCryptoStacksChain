@@ -1,14 +1,45 @@
-# Ignore client directory - deployed to Cloudflare Pages
+# ========================================
+# RAILWAY IGNORE - Backend Only Deploy
+# ========================================
+# This file tells Railway what NOT to include in the backend deployment.
+# Client is deployed separately to Cloudflare Pages.
+
+# Frontend (deployed to Cloudflare Pages)
 client/
+client/**
 
-# Ignore contracts directory - not needed for backend
+# Smart contracts (not needed for runtime)
 contracts/
+contracts/**
 
-# Ignore development files
+# Database schemas (Prisma generates from server/)
+database/
+database/**
+
+# Development files
 *.log
+*.log.*
 .env.local
+.env.*.local
 .DS_Store
+.vscode/
+.idea/
 
-# Ignore documentation
+# Documentation (reduces build size)
 *.md
 !README.md
+docs/
+
+# Test files
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+__tests__/
+
+# Build artifacts from local development
+**/node_modules/.cache
+**/dist
+**/build
+!server/dist
+!shared/dist
