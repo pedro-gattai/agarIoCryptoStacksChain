@@ -1,0 +1,14 @@
+# Ignore client directory - deployed to Cloudflare Pages
+client/
+
+# Ignore contracts directory - not needed for backend
+contracts/
+
+# Ignore development files
+*.log
+.env.local
+.DS_Store
+
+# Ignore documentation
+*.md
+!README.md
