@@ -2,12 +2,14 @@
 name = "agarcoin-frontend"
 compatibility_date = "2025-10-01"
 
+# Output directory where built files are located (required by Cloudflare Pages)
+pages_build_output_dir = "client/dist"
+
 # Pages configuration for React frontend
 [pages]
 # Build command that includes shared package compilation
-build_command = "cd client && npm ci && npm run build"
-# Output directory where built files are located
-build_output_dir = "client/dist"
+# Note: Uses root build command which handles shared dependencies
+build_command = "npm run build:shared && npm run build:client"
 # Enable source maps for better debugging
 source_maps = true
 
