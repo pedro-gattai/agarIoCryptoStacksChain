@@ -1,4 +1,4 @@
-# AgarCoin - Trustless Gaming Wagers on Stacks 🎮⚡
+# AgarCrypto - Trustless Gaming Wagers on Stacks 🎮⚡
 
 **A proof-of-concept infrastructure for secure, verifiable betting in competitive multiplayer games built on Stacks blockchain.**
 
@@ -40,7 +40,7 @@ Friends who game together often want to bet on matches for fun, but face critica
 
 ### Our Solution
 
-**AgarCoin** eliminates these friction points by leveraging Stacks blockchain:
+**AgarCrypto** eliminates these friction points by leveraging Stacks blockchain:
 
 ✅ **Trustless Escrow** - Entry fees automatically locked in smart contract
 ✅ **Automatic Payouts** - Winners receive prizes instantly via smart contract
@@ -107,7 +107,7 @@ This POC proves the concept works. The infrastructure can scale to **any game, a
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         AGARCOIN PLATFORM                            │
+│                         AGARCRYPTO PLATFORM                            │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
@@ -276,7 +276,7 @@ This POC proves the concept works. The infrastructure can scale to **any game, a
     │              │              │    Prizes        │
     │              │              │─────────────────>│
     │              │              │                  │
-    │ (13) Receive │              │   (14) STX Sent  │
+    │ (14) Receive │              │   (13) STX Sent  │
     │<─────────────┼──────────────┼──────────────────┤
     │   Prize      │              │                  │
 ```
@@ -292,7 +292,7 @@ This POC proves the concept works. The infrastructure can scale to **any game, a
 │                         USER JOURNEY                                 │
 └─────────────────────────────────────────────────────────────────────┘
 
-START: Player arrives at AgarCoin platform
+START: Player arrives at AgarCrypto platform
   │
   ├─> [Landing Page]
   │   • View platform features
@@ -654,7 +654,7 @@ CheckmateGaming is a centralized platform that enables betting on gaming matches
 
 **Our Competitive Advantage:**
 
-| Feature | CheckmateGaming | AgarCoin |
+| Feature | CheckmateGaming | AgarCrypto |
 |---------|----------------|----------|
 | Trust Model | Centralized (trust the company) | Trustless (trust the code) |
 | Custody | Company holds funds | Smart contract escrow |
@@ -812,8 +812,8 @@ With 10 players per game:   310 daily active users
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/yourusername/agarcoin-stacks.git
-cd agarcoin-stacks
+git clone https://github.com/yourusername/agarcrypto-stacks.git
+cd agarcrypto-stacks
 
 # 2. Install dependencies (monorepo)
 npm install
@@ -855,7 +855,7 @@ STACKS_CONTRACT_ADDRESS=ST1ZFTT97Z1BBTD5Y2JK7N1Y3MJ9SYCDN1F4803GZ
 STACKS_CONTRACT_NAME=game-pool
 
 # Database
-DATABASE_URL="postgresql://user:password@localhost:5432/agarcoin"
+DATABASE_URL="postgresql://user:password@localhost:5432/agarcrypto"
 
 # Demo Mode (skip blockchain for testing)
 DEMO_MODE=false
@@ -1131,7 +1131,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ```bash
 # Fork repository
 # Clone your fork
-git clone https://github.com/yourusername/agarcoin-stacks.git
+git clone https://github.com/yourusername/agarcrypto-stacks.git
 
 # Create feature branch
 git checkout -b feature/amazing-feature
