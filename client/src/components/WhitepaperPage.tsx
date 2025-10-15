@@ -169,7 +169,7 @@ export const WhitepaperPage: React.FC = () => {
                 return <h3 id={text} {...props}>{children}</h3>;
               },
               // Style code blocks
-              code: ({ node, inline, className, children, ...props }) => {
+              code: ({ inline, className, children, ...props }: any) => {
                 return inline ? (
                   <code className={className} {...props}>
                     {children}

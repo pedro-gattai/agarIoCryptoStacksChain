@@ -31,7 +31,7 @@ export default defineConfig({
       }
     },
     // Production build optimizations
-    minify: 'terser',
+    minify: 'esbuild', // Using esbuild (faster and included by default)
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
   },
