@@ -9,6 +9,7 @@ import { AchievementSystem } from './components/AchievementSystem'
 import { TournamentSystem } from './components/TournamentSystem'
 import { WhitepaperPage } from './components/WhitepaperPage'
 import { ActionButton } from './components/ui/ActionButton'
+import config from './config'
 import './styles/index.css'
 
 // Componente interno que usa os hooks
@@ -116,7 +117,7 @@ function AppContent() {
 // Componente principal App
 function App() {
   return (
-    <CombinedProvider serverUrl="http://localhost:3000">
+    <CombinedProvider serverUrl={config.serverUrl}>
       <AppContent />
     </CombinedProvider>
   )

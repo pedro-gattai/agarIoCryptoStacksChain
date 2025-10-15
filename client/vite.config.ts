@@ -7,9 +7,6 @@ export default defineConfig({
   plugins: [react()],
   define: {
     global: 'globalThis',
-    'process.env.NODE_ENV': '"development"',
-    'process.env.DEMO_MODE': '"true"',
-    'process.env.BYPASS_BLOCKCHAIN': '"true"',
   },
   resolve: {
     alias: {
@@ -24,8 +21,24 @@ export default defineConfig({
     rollupOptions: {
       external: [],
       output: {
-        globals: {}
+        globals: {},
+        // Optimize chunk splitting for better caching
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'stacks-vendor': ['@stacks/connect', '@stacks/transactions', '@stacks/network', '@stacks/auth'],
+          'socket-vendor': ['socket.io-client'],
+        }
       }
-    }
-  }
+    },
+    // Production build optimizations
+    minify: 'terser',
+    sourcemap: false,
+    chunkSizeWarningLimit: 1000,
+  },
+  // Server configuration for development
+  server: {
+    port: 5173,
+    strictPort: false,
+    host: true,
+  },
 })
