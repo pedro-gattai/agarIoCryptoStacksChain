@@ -356,7 +356,10 @@ export const Leaderboards: React.FC<LeaderboardsProps> = ({ onClose }) => {
       <div className="leaderboards-top-bar">
         <div className="top-bar-left">
           <Trophy size={28} className="logo-icon" />
-          <h1 className="leaderboards-title">Leaderboards</h1>
+          <div className="title-container">
+            <h1 className="leaderboards-title">Leaderboards</h1>
+            <span className="coming-soon-badge">🚧 Coming Soon</span>
+          </div>
         </div>
 
         {/* Center - Back to Lobby */}

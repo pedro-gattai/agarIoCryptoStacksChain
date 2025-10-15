@@ -14,6 +14,7 @@ export const useNavigation = (initialState: AppState = 'landing') => {
     onShowLeaderboards: () => navigate('leaderboards'),
     onShowAchievements: () => navigate('achievements'),
     onShowTournaments: () => navigate('tournaments'),
+    onShowWhitepaper: () => navigate('whitepaper'),
     onBackToLanding: () => navigate('landing'),
     onBackToLobby: () => navigate('lobby'),
     onGameStart: () => navigate('game')

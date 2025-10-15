@@ -1,7 +1,7 @@
 // UI-specific types
 
 // App navigation state
-export type AppState = 'landing' | 'lobby' | 'game' | 'leaderboards' | 'achievements' | 'tournaments';
+export type AppState = 'landing' | 'lobby' | 'game' | 'leaderboards' | 'achievements' | 'tournaments' | 'whitepaper';
 
 // Modal state interface
 export interface ModalState {
@@ -60,6 +60,7 @@ export interface NavigationHandlers {
   onShowLeaderboards: () => void;
   onShowAchievements: () => void;
   onShowTournaments: () => void;
+  onShowWhitepaper: () => void;
   onBackToLanding: () => void;
   onBackToLobby: () => void;
   onGameStart: () => void;

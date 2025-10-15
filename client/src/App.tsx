@@ -7,6 +7,7 @@ import { GameLobby } from './components/GameLobby'
 import { Leaderboards } from './components/Leaderboards'
 import { AchievementSystem } from './components/AchievementSystem'
 import { TournamentSystem } from './components/TournamentSystem'
+import { WhitepaperPage } from './components/WhitepaperPage'
 import { ActionButton } from './components/ui/ActionButton'
 import './styles/index.css'
 
@@ -20,7 +21,8 @@ function AppContent() {
     onPlayNow,
     onShowLeaderboards,
     onShowAchievements,
-    onShowTournaments
+    onShowTournaments,
+    onShowWhitepaper
   } = useNavigation();
 
   // Gerenciar classes CSS baseadas no estado da aplicação
@@ -51,6 +53,7 @@ function AppContent() {
           onShowLeaderboards={onShowLeaderboards}
           onShowAchievements={onShowAchievements}
           onShowTournaments={onShowTournaments}
+          onShowWhitepaper={onShowWhitepaper}
         />
       )}
 
@@ -101,6 +104,10 @@ function AppContent() {
 
       {appState === 'tournaments' && (
         <TournamentSystem onClose={onBackToLobby} />
+      )}
+
+      {appState === 'whitepaper' && (
+        <WhitepaperPage />
       )}
     </div>
   )

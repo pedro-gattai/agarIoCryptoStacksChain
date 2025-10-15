@@ -11,96 +11,83 @@ interface RoadmapItem {
   progress: number;
 }
 
-export const InteractiveRoadmap: React.FC = () => {
+interface InteractiveRoadmapProps {
+  onShowWhitepaper?: () => void;
+}
+
+export const InteractiveRoadmap: React.FC<InteractiveRoadmapProps> = ({ onShowWhitepaper }) => {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [roadmapData] = useState<RoadmapItem[]>([
     {
       id: 'phase1',
       phase: 'Phase 1',
-      title: 'Foundation Launch',
-      description: 'Core game mechanics and basic multiplayer functionality',
+      title: 'Current POC',
+      description: 'Proof of concept with core infrastructure and testnet deployment',
       status: 'completed',
-      quarter: 'Q1 2024',
+      quarter: 'Q4 2024',
       progress: 100,
       features: [
-        'Real-time multiplayer for 100 players',
-        'Basic Agar.io gameplay mechanics',
-        'Stacks wallet integration',
-        'Entry fee system with STX rewards',
-        'Leaderboards and statistics',
-        'Mobile-responsive design'
+        'Smart contract for escrow & distribution',
+        'Session recording & hashing',
+        'On-chain verification',
+        'Anti-cheat validation',
+        'Replay APIs',
+        'Real-time multiplayer game engine',
+        'Wallet integration',
+        'Testnet deployment'
       ]
     },
     {
       id: 'phase2',
       phase: 'Phase 2',
-      title: 'Token Launch & Advanced Features',
-      description: 'AGAR token deployment and enhanced gaming experience',
-      status: 'in-progress',
-      quarter: 'Q2 2024',
-      progress: 75,
+      title: 'Production-Ready',
+      description: 'Integration with popular games and mainnet deployment',
+      status: 'upcoming',
+      quarter: 'Q1 2025',
+      progress: 0,
       features: [
-        '$AGAR token launch on Stacks',
-        'Staking rewards program',
-        'NFT skins marketplace',
-        'Achievement system',
-        'Tournament mode (Beta)',
-        'Anti-cheat system',
-        'Mobile app development'
+        'Integration with popular games (LoL, CS:GO, Dota 2)',
+        'IPFS storage for replays (decentralized)',
+        'Advanced anti-cheat (ML-based detection)',
+        'Formal dispute resolution system',
+        'Mobile app support (iOS/Android)',
+        'Mainnet deployment',
+        'Security audit'
       ]
     },
     {
       id: 'phase3',
       phase: 'Phase 3',
-      title: 'DeFi Integration',
-      description: 'Advanced DeFi features and yield farming opportunities',
+      title: 'Platform Growth',
+      description: 'Open SDK and enhanced gaming features',
       status: 'upcoming',
-      quarter: 'Q3 2024',
+      quarter: 'Q2 2025',
       progress: 0,
       features: [
-        'Liquidity mining programs',
-        'Cross-chain bridge (Ethereum)',
-        'Governance token voting',
-        'Private room betting',
-        'Referral system with rewards',
-        'Advanced tournament structures',
-        'API for third-party developers'
+        'Open SDK for any game to integrate',
+        'Tournament management system',
+        'Team & clan features',
+        'Streaming integration (Twitch, YouTube)',
+        'Social features (friends, chat)',
+        'NFT achievements & badges',
+        'Sponsored tournaments'
       ]
     },
     {
       id: 'phase4',
       phase: 'Phase 4',
-      title: 'Ecosystem Expansion',
-      description: 'Multi-game platform and community-driven features',
+      title: 'Ecosystem',
+      description: 'DAO governance and multi-chain expansion',
       status: 'upcoming',
-      quarter: 'Q4 2024',
+      quarter: 'Q3 2025',
       progress: 0,
       features: [
-        'Additional game modes',
-        'Community-created content',
-        'DAO governance implementation',
-        'Mobile app launch',
-        'Esports tournaments',
-        'Metaverse integration',
-        'Educational gaming platform'
-      ]
-    },
-    {
-      id: 'phase5',
-      phase: 'Phase 5',
-      title: 'Global Scale',
-      description: 'Worldwide adoption and advanced gaming ecosystem',
-      status: 'upcoming',
-      quarter: 'Q1 2025',
-      progress: 0,
-      features: [
-        'Multi-language support',
-        'Regional tournaments',
-        'Professional gaming leagues',
-        'VR/AR game modes',
-        'AI-powered game balancing',
-        'Blockchain gaming SDK',
-        'Educational partnerships'
+        'DAO governance for platform decisions',
+        'Platform token launch',
+        'Liquidity mining for early users',
+        'Multi-chain expansion (Bitcoin L2s)',
+        'Developer grants program',
+        'Partner network (game studios)'
       ]
     }
   ]);
@@ -227,7 +214,7 @@ export const InteractiveRoadmap: React.FC = () => {
           </div>
           
           <div className="stat-card">
-            <div className="stat-number">12</div>
+            <div className="stat-number">9</div>
             <div className="stat-label">Months Timeline</div>
           </div>
         </div>
@@ -238,8 +225,18 @@ export const InteractiveRoadmap: React.FC = () => {
             <h3>Be Part of Our Journey</h3>
             <p>Join thousands of players shaping the future of crypto gaming</p>
             <div className="cta-actions">
-              <button className="cta-primary">Join Community</button>
-              <button className="cta-secondary">Read Whitepaper</button>
+              <button
+                className="cta-primary"
+                onClick={() => window.open('https://t.me/+wYTqPTvz7XY0MGVh', '_blank')}
+              >
+                Join Community
+              </button>
+              <button
+                className="cta-secondary"
+                onClick={onShowWhitepaper}
+              >
+                Read Whitepaper
+              </button>
             </div>
           </div>
         </div>
