@@ -144,8 +144,12 @@ export class BlockchainService {
   }
 
   async waitForTransaction(txId: string, maxWait: number = 120000): Promise<boolean> {
-    Logger.info(`[BlockchainService] ⏳ Waiting for transaction ${txId}...`);
-    Logger.info(`[BlockchainService] 🔗 Explorer: https://explorer.hiro.so/txid/${txId}?chain=testnet`);
+    Logger.warn(`[BlockchainService] ⏳ Waiting for transaction ${txId}...`);
+    Logger.warn(`[BlockchainService] 🔗 Explorer: https://explorer.hiro.so/txid/${txId}?chain=testnet`);
+
+    // Wait 10 seconds before starting to poll to allow transaction to propagate to mempool
+    Logger.warn(`[BlockchainService] ⏸️ Waiting 10 seconds for transaction to propagate to mempool...`);
+    await new Promise(resolve => setTimeout(resolve, 10000));
 
     const startTime = Date.now();
     let pollCount = 0;
@@ -155,19 +159,19 @@ export class BlockchainService {
       const status = await this.getTransactionStatus(txId);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-      Logger.info(`[BlockchainService] Poll ${pollCount} (${elapsed}s): Status = ${status}`);
+      Logger.warn(`[BlockchainService] Poll ${pollCount} (${elapsed}s): Status = ${status}`);
 
       if (status === 'success') {
-        Logger.info(`[BlockchainService] ✅ Transaction SUCCESS after ${elapsed}s`);
+        Logger.warn(`[BlockchainService] ✅ Transaction SUCCESS after ${elapsed}s`);
         return true;
       } else if (status === 'abort_by_response' || status === 'abort_by_post_condition') {
         Logger.error(`[BlockchainService] ❌ Transaction ABORTED: ${status}`);
         return false;
       } else if (status === 'failed') {
-        Logger.error(`[BlockchainService] ❌ Transaction FAILED`);
-        return false;
+        // Don't fail immediately - transaction may still be propagating
+        Logger.warn(`[BlockchainService] ⚠️ Transaction status 'failed' - may still be propagating, continuing to poll...`);
       } else if (status === 'pending') {
-        Logger.info(`[BlockchainService] ⏳ Transaction still pending, will keep polling...`);
+        Logger.warn(`[BlockchainService] ⏳ Transaction still pending, will keep polling...`);
       }
 
       // Wait 5 seconds before checking again
