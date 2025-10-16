@@ -5,6 +5,7 @@
 @import './components/buttons.css';
 @import './components/modals.css';
 @import './components/coming-soon.css';
+@import './components/testnet-banner.css';
 
 /* Legacy styles - to be migrated gradually */
 @import './game.css';

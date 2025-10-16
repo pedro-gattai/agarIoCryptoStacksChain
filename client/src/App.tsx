@@ -9,6 +9,7 @@ import { AchievementSystem } from './components/AchievementSystem'
 import { TournamentSystem } from './components/TournamentSystem'
 import { WhitepaperPage } from './components/WhitepaperPage'
 import { ActionButton } from './components/ui/ActionButton'
+import { TestnetBanner } from './components/ui/TestnetBanner'
 import config from './config'
 import './styles/index.css'
 
@@ -48,6 +49,9 @@ function AppContent() {
 
   return (
     <div className="app">
+      {/* Show testnet banner on all pages EXCEPT during active game */}
+      {appState !== 'game' && <TestnetBanner />}
+
       {appState === 'landing' && (
         <LandingPage
           onPlayNow={onPlayNow}
