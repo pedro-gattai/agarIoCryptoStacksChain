@@ -20,6 +20,7 @@ This project demonstrates how blockchain technology can enable trustless wagerin
 - [Business Model](#-business-model)
 - [Tech Stack](#-tech-stack)
 - [Installation](#-installation)
+- [Deployment](#-deployment)
 - [Smart Contract](#-smart-contract)
 - [Demo](#-demo)
 - [Roadmap](#-roadmap)
@@ -876,6 +877,525 @@ clarinet contracts deploy --testnet
 # Or use Clarinet console for testing
 clarinet console
 ```
+
+---
+
+## 🚀 Deployment
+
+This section provides a platform-agnostic guide for deploying AgarCrypto to production. The architecture is designed as a **monorepo with three independent components** that can be deployed separately.
+
+### Deployment Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DEPLOYMENT ARCHITECTURE                       │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
+│                 │         │                 │         │                 │
+│   FRONTEND      │         │    BACKEND      │         │    DATABASE     │
+│   (Static SPA)  │◄───────►│  (Node.js App)  │◄───────►│  (PostgreSQL)   │
+│                 │         │                 │         │                 │
+│  Build: client/ │         │ Build: server/  │         │  Managed DB     │
+│  Output: dist/  │         │ Entry: index.js │         │  or Self-host   │
+│                 │         │ WebSocket: Yes  │         │                 │
+└─────────────────┘         └─────────────────┘         └─────────────────┘
+        │                           │                            │
+        │                           │                            │
+        ▼                           ▼                            ▼
+┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
+│ Cloudflare Pages│         │    Railway      │         │ Railway DB      │
+│    Vercel       │         │     Render      │         │   Supabase      │
+│    Netlify      │         │    Heroku       │         │     Neon        │
+│   AWS S3/CF     │         │   AWS ECS       │         │   AWS RDS       │
+└─────────────────┘         └─────────────────┘         └─────────────────┘
+```
+
+### Component Overview
+
+| Component | Type | Build Output | Deployment Target | Notes |
+|-----------|------|-------------|-------------------|-------|
+| **Frontend** | React SPA | `client/dist/` | Static hosting (CDN) | Requires `VITE_SERVER_URL` env var |
+| **Backend** | Node.js + Express + Socket.IO | `server/dist/index.js` | Node.js hosting | Requires PostgreSQL connection |
+| **Database** | PostgreSQL 14+ | N/A | Managed DB service | Prisma ORM for migrations |
+
+---
+
+### Build Process
+
+#### Understanding the Monorepo
+
+The project uses npm workspaces with the following structure:
+
+```
+agarcrypto-stacks/
+├── client/          # Frontend React app
+├── server/          # Backend Node.js server
+├── shared/          # Shared TypeScript types (dependency for both)
+├── contracts/       # Clarity smart contracts
+├── database/        # Prisma schema and migrations
+└── package.json     # Root workspace configuration
+```
+
+**Build Order:** `shared` → `server` / `client` (parallel)
+
+#### Available Build Scripts
+
+```bash
+# Build everything (shared + server + client)
+npm run build
+
+# Build only backend (shared + server)
+npm run build:backend
+
+# Build only frontend (shared + client)
+npm run build:client
+
+# Build only shared package
+npm run build:shared
+```
+
+#### Component-Specific Builds
+
+**Frontend:**
+```bash
+cd client
+npm install
+npm run build
+# Output: client/dist/
+```
+
+**Backend:**
+```bash
+# Must build shared first
+cd shared && npm install && npm run build
+cd ../server && npm install && npm run build
+# Output: server/dist/
+```
+
+---
+
+### Frontend Deployment
+
+The frontend is a **static React SPA** that can be deployed to any static hosting provider.
+
+#### Build Configuration
+
+**Build Command:**
+```bash
+cd shared && npm install && npm run build && cd ../client && npm install && npm run build
+```
+
+**Build Output Directory:** `client/dist/`
+
+**Environment Variables:**
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_SERVER_URL` | Backend API URL | `https://api.agarcrypto.com` |
+| `VITE_STACKS_NETWORK` | Stacks network (testnet/mainnet) | `testnet` |
+| `VITE_DEMO_MODE` | Enable demo mode | `false` |
+| `VITE_BYPASS_BLOCKCHAIN` | Skip blockchain calls | `false` |
+
+#### Platform Examples
+
+**Cloudflare Pages:**
+```yaml
+Build command: cd shared && npm install && npm run build && cd ../client && npm install && npm run build
+Build output directory: client/dist
+Root directory: / (leave empty)
+Environment variables: Add VITE_* variables in dashboard
+```
+
+**Vercel:**
+```json
+// vercel.json
+{
+  "buildCommand": "cd shared && npm install && npm run build && cd ../client && npm install && npm run build",
+  "outputDirectory": "client/dist",
+  "framework": null
+}
+```
+
+**Netlify:**
+```toml
+# netlify.toml
+[build]
+  command = "cd shared && npm install && npm run build && cd ../client && npm install && npm run build"
+  publish = "client/dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+```
+
+**AWS S3 + CloudFront:**
+```bash
+# Build locally
+npm run build:client
+
+# Upload to S3
+aws s3 sync client/dist/ s3://your-bucket-name/ --delete
+
+# Invalidate CloudFront cache
+aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
+```
+
+---
+
+### Backend Deployment
+
+The backend is a **Node.js application** with Express, Socket.IO, and Prisma ORM.
+
+#### Build Configuration
+
+**Build Command:**
+```bash
+npm run build:backend && cd server && npx prisma generate && npx prisma migrate deploy
+```
+
+**Start Command:**
+```bash
+cd server && node dist/index.js
+```
+
+**Requirements:**
+- Node.js 18+
+- PostgreSQL 14+ connection
+- WebSocket support
+
+#### Environment Variables
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` |
+| `PORT` | ✅ | Server port | `3000` |
+| `NODE_ENV` | ✅ | Environment | `production` |
+| `CLIENT_URL` | ✅ | Frontend URL (CORS) | `https://agarcrypto.com` |
+| `STACKS_NETWORK` | ✅ | testnet or mainnet | `testnet` |
+| `STACKS_API_URL` | ✅ | Stacks API endpoint | `https://api.testnet.hiro.so` |
+| `STACKS_CONTRACT_ADDRESS` | ✅ | Deployed contract address | `ST1ZFTT97...` |
+| `STACKS_CONTRACT_NAME` | ✅ | Contract name | `game-pool` |
+| `JWT_SECRET` | ✅ | Secret for JWT tokens | Generate with `openssl rand -base64 32` |
+| `DEFAULT_ENTRY_FEE` | ⚠️ | Default game entry fee | `0.001` |
+| `MAX_PLAYERS_PER_GAME` | ⚠️ | Max players per game | `20` |
+| `HOUSE_FEE_PERCENTAGE` | ⚠️ | Platform fee % | `20` |
+| `DEMO_MODE` | ⚠️ | Skip blockchain | `false` |
+
+#### Platform Examples
+
+**Railway:**
+```json
+// railway.json (place in project root)
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm run build:backend && cd server && npx prisma generate && npx prisma migrate deploy"
+  },
+  "deploy": {
+    "startCommand": "cd server && node dist/index.js",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+```
+
+**Render:**
+```yaml
+# render.yaml
+services:
+  - type: web
+    name: agarcrypto-backend
+    env: node
+    buildCommand: npm run build:backend && cd server && npx prisma generate && npx prisma migrate deploy
+    startCommand: cd server && node dist/index.js
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agarcrypto-db
+          property: connectionString
+```
+
+**Heroku:**
+```yaml
+# Procfile
+web: cd server && node dist/index.js
+
+# package.json
+{
+  "scripts": {
+    "heroku-postbuild": "npm run build:backend && cd server && npx prisma generate && npx prisma migrate deploy"
+  }
+}
+```
+
+**AWS ECS (Docker):**
+```dockerfile
+# Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy workspace files
+COPY package*.json ./
+COPY shared ./shared
+COPY server ./server
+
+# Install and build
+RUN npm install
+RUN npm run build:backend
+
+# Generate Prisma client
+WORKDIR /app/server
+RUN npx prisma generate
+
+# Run migrations on startup (use init container in production)
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+
+EXPOSE 3000
+```
+
+---
+
+### Database Setup
+
+The application requires **PostgreSQL 14+** with Prisma ORM for schema management.
+
+#### Option 1: Managed Database (Recommended)
+
+**Railway PostgreSQL:**
+```bash
+# Add from Railway dashboard
+# Connection string automatically injected as DATABASE_URL
+```
+
+**Supabase:**
+```bash
+# Create project at supabase.com
+# Get connection string from Settings → Database
+DATABASE_URL="postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres"
+```
+
+**Neon (Serverless Postgres):**
+```bash
+# Create project at neon.tech
+# Get connection string from dashboard
+DATABASE_URL="postgresql://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb"
+```
+
+**AWS RDS:**
+```bash
+# Create RDS PostgreSQL instance
+# Configure security groups for backend access
+DATABASE_URL="postgresql://admin:password@dbinstance.abc.us-east-1.rds.amazonaws.com:5432/agarcrypto"
+```
+
+#### Option 2: Self-Hosted
+
+```bash
+# Using Docker
+docker run --name agarcrypto-db \
+  -e POSTGRES_PASSWORD=securepassword \
+  -e POSTGRES_DB=agarcrypto \
+  -p 5432:5432 \
+  -d postgres:14
+
+DATABASE_URL="postgresql://postgres:securepassword@localhost:5432/agarcrypto"
+```
+
+#### Running Migrations
+
+```bash
+# In production, migrations run automatically during deployment
+# Manual migration (if needed):
+cd server
+npx prisma migrate deploy
+
+# Generate Prisma Client (required after schema changes)
+npx prisma generate
+```
+
+---
+
+### Complete Environment Variables
+
+#### Frontend (`client/.env`)
+
+```bash
+# Backend API URL (REQUIRED)
+VITE_SERVER_URL=https://api.agarcrypto.com
+
+# Stacks Network (REQUIRED)
+VITE_STACKS_NETWORK=testnet
+
+# Feature Flags (Optional)
+VITE_DEMO_MODE=false
+VITE_BYPASS_BLOCKCHAIN=false
+```
+
+#### Backend (`server/.env`)
+
+```bash
+# ========================================
+# DATABASE (REQUIRED)
+# ========================================
+DATABASE_URL=postgresql://user:password@host:5432/agarcrypto
+
+# ========================================
+# SERVER CONFIG (REQUIRED)
+# ========================================
+PORT=3000
+NODE_ENV=production
+CLIENT_URL=https://agarcrypto.com
+
+# ========================================
+# STACKS BLOCKCHAIN (REQUIRED)
+# ========================================
+STACKS_NETWORK=testnet
+STACKS_API_URL=https://api.testnet.hiro.so
+STACKS_CONTRACT_ADDRESS=ST1ZFTT97Z1BBTD5Y2JK7N1Y3MJ9SYCDN1F4803GZ
+STACKS_CONTRACT_NAME=game-pool
+
+# ========================================
+# SECURITY (REQUIRED)
+# ========================================
+# Generate with: openssl rand -base64 32
+JWT_SECRET=your-generated-secret-here
+
+# ========================================
+# GAME CONFIG (Optional - has defaults)
+# ========================================
+DEFAULT_ENTRY_FEE=0.001
+MAX_PLAYERS_PER_GAME=20
+HOUSE_FEE_PERCENTAGE=20
+
+# ========================================
+# FEATURE FLAGS (Optional)
+# ========================================
+DEMO_MODE=false
+```
+
+---
+
+### Deployment Checklist
+
+#### Pre-Deployment
+
+- [ ] **Build locally** - Verify all components build without errors
+- [ ] **Environment variables** - Prepare all required env vars
+- [ ] **Database ready** - PostgreSQL instance created and accessible
+- [ ] **Smart contract deployed** - Contract deployed to target network (testnet/mainnet)
+- [ ] **Generate secrets** - Create JWT_SECRET with `openssl rand -base64 32`
+- [ ] **Update CORS origins** - Set CLIENT_URL to match frontend domain
+
+#### Deployment Steps
+
+1. **Deploy Database**
+   - Create PostgreSQL instance
+   - Note connection string
+   - Run initial migrations
+
+2. **Deploy Backend**
+   - Configure environment variables
+   - Set DATABASE_URL
+   - Deploy and verify `/health` endpoint
+
+3. **Deploy Frontend**
+   - Configure VITE_SERVER_URL to backend URL
+   - Build and deploy static assets
+   - Verify app loads and connects to backend
+
+#### Post-Deployment Verification
+
+```bash
+# Backend health check
+curl https://api.agarcrypto.com/health
+# Expected: {"status":"ok"}
+
+# Frontend loads
+curl https://agarcrypto.com
+# Expected: HTML response
+
+# WebSocket connection (check browser console)
+# Expected: Socket.IO connected message
+
+# Database connection (backend logs)
+# Expected: No Prisma connection errors
+```
+
+#### Common Issues
+
+**Frontend can't connect to backend:**
+- Check `VITE_SERVER_URL` is correct
+- Verify CORS configuration (`CLIENT_URL` in backend)
+- Check backend is running and accessible
+
+**WebSocket connection fails:**
+- Ensure platform supports WebSocket upgrades
+- Check firewall/security group rules
+- Verify `transports: ['websocket', 'polling']` in Socket.IO config
+
+**Database connection errors:**
+- Verify `DATABASE_URL` format is correct
+- Check database is accessible from backend (firewall/VPC)
+- Ensure SSL mode matches database requirement (`?sslmode=require`)
+
+**Prisma migrations fail:**
+- Verify database user has CREATE TABLE permissions
+- Check database connection string includes database name
+- Review migration files for conflicts
+
+---
+
+### Platform Comparison
+
+| Platform | Frontend | Backend | Database | Cost | WebSocket | Difficulty |
+|----------|----------|---------|----------|------|-----------|-----------|
+| **Railway** | ❌ Use Cloudflare | ✅ Excellent | ✅ Built-in | $5-10/mo | ✅ | Easy |
+| **Cloudflare Pages** | ✅ Best | ❌ | ❌ | Free | N/A | Easy |
+| **Vercel** | ✅ Excellent | ⚠️ Serverless only | ❌ | Free-$20/mo | ⚠️ Limited | Easy |
+| **Netlify** | ✅ Excellent | ⚠️ Functions | ❌ | Free-$19/mo | ❌ | Easy |
+| **Render** | ✅ Static | ✅ Good | ✅ Built-in | $7-25/mo | ✅ | Easy |
+| **Heroku** | ⚠️ Static buildpack | ✅ Classic | ✅ Add-on | $7-25/mo | ✅ | Medium |
+| **AWS** | ✅ S3/CloudFront | ✅ ECS/EC2 | ✅ RDS | $20-100/mo | ✅ | Hard |
+| **DigitalOcean** | ⚠️ Static | ✅ App Platform | ✅ Managed DB | $12-30/mo | ✅ | Medium |
+
+**Recommended Setup for Production:**
+- **Frontend:** Cloudflare Pages (free, fast CDN, unlimited bandwidth)
+- **Backend:** Railway or Render ($7-10/mo, easy setup, WebSocket support)
+- **Database:** Railway PostgreSQL or Supabase (managed, automatic backups)
+
+---
+
+### Migrating from Testnet to Mainnet
+
+When ready to move from testnet to mainnet:
+
+1. **Deploy smart contract to mainnet:**
+```bash
+cd contracts
+clarinet contracts deploy --mainnet
+```
+
+2. **Update environment variables:**
+```bash
+# Backend
+STACKS_NETWORK=mainnet
+STACKS_API_URL=https://api.mainnet.hiro.so
+STACKS_CONTRACT_ADDRESS=<your-mainnet-address>
+
+# Frontend
+VITE_STACKS_NETWORK=mainnet
+```
+
+3. **Communicate to users:**
+   - Announce migration to mainnet
+   - Warn users this is now real money
+   - Provide instructions for switching wallets to mainnet
 
 ---
 
