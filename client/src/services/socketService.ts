@@ -29,11 +29,14 @@ export class SocketService {
         console.log(`🔌 [SOCKET_CLIENT] Attempting connection to: ${serverUrl}`);
         
         this.socket = io(serverUrl, {
-          transports: ['websocket'],
+          transports: ['websocket', 'polling'],
           autoConnect: true,
           reconnection: true,
           reconnectionDelay: 1000,
           reconnectionAttempts: 5,
+          withCredentials: true,
+          // Increase timeouts for Railway
+          timeout: 20000,
         });
 
         this.socket.on('connect', () => {

@@ -40,8 +40,16 @@ const io = new Server(httpServer, {
       "http://localhost:5176", // For when port 5175 is in use
       "http://localhost:5177"  // For when port 5176 is in use
     ],
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  // Enable both WebSocket and HTTP long-polling for Railway compatibility
+  transports: ['websocket', 'polling'],
+  // Allow upgrades from polling to websocket
+  allowUpgrades: true,
+  // Increase ping timeout for Railway's network
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 // Add debugging for Socket.IO server
