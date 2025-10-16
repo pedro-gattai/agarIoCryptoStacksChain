@@ -454,10 +454,10 @@ export class BlockchainService {
         this.network.isMainnet() ? TransactionVersion.Mainnet : TransactionVersion.Testnet
       );
 
-      Logger.info(`[BlockchainService] 📡 Broadcasting initialize-game-pool...`);
-      Logger.info(`[BlockchainService] 👤 Sender: ${senderAddress}`);
-      Logger.info(`[BlockchainService] 💰 Entry fee: ${entryFee} STX, Max players: ${maxPlayers}`);
-      Logger.info(`[BlockchainService] 🔗 Check wallet: https://explorer.hiro.so/address/${senderAddress}?chain=testnet`);
+      Logger.warn(`[BlockchainService] 📡 Broadcasting initialize-game-pool...`);
+      Logger.warn(`[BlockchainService] 👤 Sender: ${senderAddress}`);
+      Logger.warn(`[BlockchainService] 💰 Entry fee: ${entryFee} STX, Max players: ${maxPlayers}`);
+      Logger.warn(`[BlockchainService] 🔗 Check wallet: https://explorer.hiro.so/address/${senderAddress}?chain=testnet`);
 
       const txOptions = {
         contractAddress: this.contractAddress,
@@ -482,8 +482,8 @@ export class BlockchainService {
         throw new Error(`Broadcast failed: ${(broadcastResponse as any).error}`);
       }
 
-      Logger.info(`[BlockchainService] ✅ Broadcast SUCCESS: ${broadcastResponse.txid}`);
-      Logger.info(`[BlockchainService] 🔗 Track: https://explorer.hiro.so/txid/${broadcastResponse.txid}?chain=testnet`);
+      Logger.warn(`[BlockchainService] ✅ Broadcast SUCCESS: ${broadcastResponse.txid}`);
+      Logger.warn(`[BlockchainService] 🔗 Track: https://explorer.hiro.so/txid/${broadcastResponse.txid}?chain=testnet`);
 
       return broadcastResponse.txid;
     } catch (error) {
