@@ -115,7 +115,28 @@ export class GlobalRoomManager {
               // We need to allow players to join while status = WAITING
               // start-game will be called after the delay when first player joins
             } catch (error) {
-              Logger.error('[GLOBAL_ROOM_MANAGER] ❌ Failed to create contract game pool (continuing anyway):', error);
+              Logger.warn('[GLOBAL_ROOM_MANAGER] ⚠️ Blockchain integration unavailable');
+              Logger.info('[GLOBAL_ROOM_MANAGER] ℹ️ Game continues normally without blockchain features');
+              Logger.info('[GLOBAL_ROOM_MANAGER] ℹ️ Players can still play - prizes and NFTs will not work');
+
+              // Provide helpful diagnostics based on error type
+              if (error instanceof Error) {
+                const errorMsg = error.message.toLowerCase();
+
+                if (errorMsg.includes('insufficient') || errorMsg.includes('balance')) {
+                  Logger.warn('[GLOBAL_ROOM_MANAGER] 💰 Wallet needs testnet STX funds');
+                  Logger.warn('[GLOBAL_ROOM_MANAGER] 🔗 Get free testnet STX: https://explorer.hiro.so/sandbox/faucet?chain=testnet');
+                  Logger.info('[GLOBAL_ROOM_MANAGER] 💡 After getting STX, restart the server');
+                } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+                  Logger.warn('[GLOBAL_ROOM_MANAGER] 📡 Transaction not found in mempool');
+                  Logger.warn('[GLOBAL_ROOM_MANAGER] 💡 Possible causes: insufficient funds, network issues, or contract not deployed');
+                } else if (errorMsg.includes('contract')) {
+                  Logger.warn('[GLOBAL_ROOM_MANAGER] 📝 Contract issue detected');
+                  Logger.warn('[GLOBAL_ROOM_MANAGER] 💡 Verify contract is deployed at: ${process.env.STACKS_CONTRACT_ADDRESS}.${process.env.STACKS_CONTRACT_NAME}');
+                }
+              }
+
+              Logger.debug('[GLOBAL_ROOM_MANAGER] Error details:', error);
               // Game works without blockchain - players can still play
             }
           })();

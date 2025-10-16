@@ -447,23 +447,65 @@ export class BlockchainService {
 
   // Create contract call for initialize-game-pool
   async createGamePoolContract(entryFee: number, maxPlayers: number, senderKey: string): Promise<string> {
-    const txOptions = {
-      contractAddress: this.contractAddress,
-      contractName: this.contractName,
-      functionName: 'initialize-game-pool',
-      functionArgs: [
-        uintCV(entryFee * 1000000), // Convert STX to microSTX
-        uintCV(maxPlayers)
-      ],
-      senderKey,
-      network: this.network,
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow
-    };
+    try {
+      // Get sender address for logging
+      const senderAddress = getAddressFromPrivateKey(
+        senderKey,
+        this.network.isMainnet() ? TransactionVersion.Mainnet : TransactionVersion.Testnet
+      );
 
-    const transaction = await makeContractCall(txOptions);
-    const broadcastResponse = await broadcastTransaction(transaction, this.network);
-    return broadcastResponse.txid;
+      Logger.info(`[BlockchainService] 📡 Broadcasting initialize-game-pool...`);
+      Logger.info(`[BlockchainService] 👤 Sender: ${senderAddress}`);
+      Logger.info(`[BlockchainService] 💰 Entry fee: ${entryFee} STX, Max players: ${maxPlayers}`);
+      Logger.info(`[BlockchainService] 🔗 Check wallet: https://explorer.hiro.so/address/${senderAddress}?chain=testnet`);
+
+      const txOptions = {
+        contractAddress: this.contractAddress,
+        contractName: this.contractName,
+        functionName: 'initialize-game-pool',
+        functionArgs: [
+          uintCV(entryFee * 1000000), // Convert STX to microSTX
+          uintCV(maxPlayers)
+        ],
+        senderKey,
+        network: this.network,
+        anchorMode: AnchorMode.Any,
+        postConditionMode: PostConditionMode.Allow
+      };
+
+      const transaction = await makeContractCall(txOptions);
+      const broadcastResponse = await broadcastTransaction(transaction, this.network);
+
+      // Check if broadcast had errors
+      if ((broadcastResponse as any).error) {
+        Logger.error(`[BlockchainService] ❌ Broadcast ERROR: ${(broadcastResponse as any).error}`);
+        throw new Error(`Broadcast failed: ${(broadcastResponse as any).error}`);
+      }
+
+      Logger.info(`[BlockchainService] ✅ Broadcast SUCCESS: ${broadcastResponse.txid}`);
+      Logger.info(`[BlockchainService] 🔗 Track: https://explorer.hiro.so/txid/${broadcastResponse.txid}?chain=testnet`);
+
+      return broadcastResponse.txid;
+    } catch (error) {
+      Logger.error(`[BlockchainService] ❌ ERROR broadcasting initialize-game-pool:`, error);
+
+      // Provide specific guidance based on error type
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase();
+
+        if (errorMsg.includes('insufficient') || errorMsg.includes('balance')) {
+          Logger.error(`[BlockchainService] ⚠️ LIKELY CAUSE: Wallet has insufficient STX funds`);
+          Logger.error(`[BlockchainService] 💰 Get testnet STX: https://explorer.hiro.so/sandbox/faucet?chain=testnet`);
+        } else if (errorMsg.includes('nonce')) {
+          Logger.error(`[BlockchainService] ⚠️ LIKELY CAUSE: Nonce mismatch - try again`);
+        } else if (errorMsg.includes('contract') || errorMsg.includes('not found')) {
+          Logger.error(`[BlockchainService] ⚠️ LIKELY CAUSE: Contract not deployed or address incorrect`);
+          Logger.error(`[BlockchainService] Contract: ${this.contractAddress}.${this.contractName}`);
+        }
+      }
+
+      throw error;
+    }
   }
 
   // Create contract call for join-game
