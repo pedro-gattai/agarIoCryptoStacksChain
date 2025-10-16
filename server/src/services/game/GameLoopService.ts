@@ -720,7 +720,21 @@ export class GameLoopService {
         })),
         totalPlayers: allPlayers.length,
         alivePlayers: allPlayers.filter(p => asGamePlayer(p).isAlive).length
-      }
+      },
+      // IMPROVED: Server-side leaderboard calculation for consistency across all clients
+      leaderboard: allPlayers
+        .filter(p => asGamePlayer(p).isAlive && !(p as any).isSplitCell) // Only alive main players, exclude split cells
+        .sort((a, b) => asGamePlayer(b).score - asGamePlayer(a).score) // Sort by score descending
+        .slice(0, 10) // Top 10
+        .map(player => {
+          const gp = asGamePlayer(player);
+          return {
+            id: player.playerId,
+            name: (player as any).name || (player.isBot ? `Bot${player.playerId.slice(-4)}` : 'Player'),
+            score: gp.score,
+            size: gp.size
+          };
+        })
     };
 
     // PHASE 6 + 7: Adaptive broadcast with delta compression

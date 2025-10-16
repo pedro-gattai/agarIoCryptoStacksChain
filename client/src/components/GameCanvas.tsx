@@ -155,18 +155,32 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         setLocalPlayer(null);
       }
       
-      // Update leaderboard (top 10 players by size) - Convert to HUDPlayer format
-      const leaderboardData: HUDPlayer[] = gameState.players
-        .filter(p => p.isAlive)
-        .sort((a, b) => (b.score || 0) - (a.score || 0))
-        .slice(0, 10)
-        .map((player) => ({
+      // IMPROVED: Use server-calculated leaderboard for consistency
+      // If server provides leaderboard, use it; otherwise calculate locally (fallback)
+      let leaderboardData: HUDPlayer[];
+
+      if ((gameState as any).leaderboard && Array.isArray((gameState as any).leaderboard)) {
+        // Use server-side leaderboard (guaranteed to be consistent across all clients)
+        leaderboardData = (gameState as any).leaderboard.map((player: any) => ({
           id: player.id,
-          name: player.id.includes('bot_') ? 'Bot' : (player.id === socketId ? 'You' : 'Player'),
+          name: player.id === socketId ? 'You' : player.name,
           score: player.score || 0,
           size: player.size || 0
         }));
-      
+      } else {
+        // Fallback to local calculation (for older server versions)
+        leaderboardData = gameState.players
+          .filter(p => p.isAlive)
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .slice(0, 10)
+          .map((player) => ({
+            id: player.id,
+            name: player.id.includes('bot_') ? 'Bot' : (player.id === socketId ? 'You' : 'Player'),
+            score: player.score || 0,
+            size: player.size || 0
+          }));
+      }
+
       setLeaderboard(leaderboardData);
       setPlayerCount(gameState.players.filter(p => p.isAlive).length);
       setGameTime(gameState.gameTime);
