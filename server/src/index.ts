@@ -29,19 +29,24 @@ Logger.setPrefix('[SERVER] ');
 // Import BlockchainService conditionally for demo mode
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
 
+// Define allowed origins for CORS (used by both Express and Socket.IO)
+const allowedOrigins = [
+  process.env.CLIENT_URL || "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://localhost:5176",
+  "http://localhost:5177"
+];
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: [
-      process.env.CLIENT_URL || "http://localhost:5173",
-      "http://localhost:5174", // For when port 5173 is in use
-      "http://localhost:5175", // For when port 5174 is in use
-      "http://localhost:5176", // For when port 5175 is in use
-      "http://localhost:5177"  // For when port 5176 is in use
-    ],
-    methods: ["GET", "POST"],
-    credentials: true
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ['*'], // Allow all headers including upgrade headers
+    exposedHeaders: ['content-type']
   },
   // Enable both WebSocket and HTTP long-polling for Railway compatibility
   transports: ['websocket', 'polling'],
@@ -59,9 +64,23 @@ io.engine.on("connection_error", (err) => {
   console.log('❌ [SOCKET.IO] Error message:', err.message);
 });
 
+// Log successful connections
+io.engine.on("connection", (rawSocket) => {
+  console.log('✅ [SOCKET.IO] New connection established:', {
+    transport: rawSocket.transport.name,
+    remoteAddress: rawSocket.request.headers['x-forwarded-for'] || rawSocket.request.socket.remoteAddress
+  });
+});
+
 console.log('🔧 [SOCKET.IO] Server configured with CORS origin:', process.env.CLIENT_URL || "http://localhost:5173");
 
-app.use(cors());
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "OPTIONS"],
+  credentials: true,
+  allowedHeaders: ['content-type', 'authorization'],
+  exposedHeaders: ['content-type']
+}));
 app.use(express.json());
 
 // Services
@@ -180,6 +199,11 @@ process.on('unhandledRejection', (reason, promise) => {
 // Health check
 app.get('/health', (_, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Socket.IO health check - helps Railway know Socket.IO is ready
+app.get('/socket.io/', (_, res) => {
+  res.status(200).send('Socket.IO server is running');
 });
 
 // API Routes - Global Room Stats

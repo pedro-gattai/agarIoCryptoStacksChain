@@ -2,6 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import type { PlayerInput } from 'shared';
 import { Logger } from 'shared';
 
+// Railway WebSocket fix: Using websocket + polling transports with credentials
 export class SocketService {
   private socket: Socket | null = null;
   private isConnected: boolean = false;
