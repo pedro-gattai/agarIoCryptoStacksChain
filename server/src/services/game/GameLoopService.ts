@@ -1,9 +1,9 @@
 import type { PlayerConnection, PlayerInput } from 'shared';
 import { asGamePlayer, GAMEPLAY_CONSTANTS } from 'shared';
-import { RoomService } from '../room/RoomService';
-import { BotService } from '../bot/BotService';
-import { CollisionService } from './CollisionService';
-import { PelletService } from './PelletService';
+import { RoomService } from '../room/RoomService.js';
+import { BotService } from '../bot/BotService.js';
+import { CollisionService } from './CollisionService.js';
+import { PelletService } from './PelletService.js';
 
 export class GameLoopService {
   private roomService: RoomService;

@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
-import { GameService } from './GameService';
-import { BlockchainService } from './BlockchainService';
-import { StatsService } from './StatsService';
+import { GameService } from './GameService.js';
+import { BlockchainService } from './BlockchainService.js';
+import { StatsService } from './StatsService.js';
 
 export interface GameRoom {
   id: string;

@@ -1,5 +1,5 @@
 import type { GlobalGameRoom, PlayerConnection, Position } from 'shared';
-import { GameService } from '../GameService';
+import { GameService } from '../GameService.js';
 import type { Server } from 'socket.io';
 
 export class RoomService {

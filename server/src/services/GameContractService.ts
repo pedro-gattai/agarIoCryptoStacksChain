@@ -1,7 +1,7 @@
-import { BlockchainService } from './BlockchainService';
-import { GameService } from './GameService';
-import { gameSessionRecorder } from './GameSessionRecorder';
-import { gameValidationService } from './GameValidationService';
+import { BlockchainService } from './BlockchainService.js';
+import { GameService } from './GameService.js';
+import { gameSessionRecorder } from './GameSessionRecorder.js';
+import { gameValidationService } from './GameValidationService.js';
 import { Logger } from 'shared';
 
 export interface GameContractIntegration {

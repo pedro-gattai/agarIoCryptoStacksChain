@@ -1,10 +1,10 @@
 import { Server, Socket } from 'socket.io';
-import { GlobalRoomManager } from '../services/GlobalRoomManager';
+import { GlobalRoomManager } from '../services/GlobalRoomManager.js';
 import type { PlayerInput } from 'shared';
-import { GameService } from '../services/GameService';
-import { GameContractService } from '../services/GameContractService';
-// import { BlockchainService } from '../services/BlockchainService'; // Conditionally imported
-import { StatsService } from '../services/StatsService';
+import { GameService } from '../services/GameService.js';
+import { GameContractService } from '../services/GameContractService.js';
+// import { BlockchainService } from '../services/BlockchainService.js'; // Conditionally imported
+import { StatsService } from '../services/StatsService.js';
 
 export async function setupGlobalGameSocket(
   io: Server,

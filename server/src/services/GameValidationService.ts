@@ -1,5 +1,5 @@
 import { Logger } from 'shared';
-import { GameSessionData, PlayerSessionData } from './GameSessionRecorder';
+import { GameSessionData, PlayerSessionData } from './GameSessionRecorder.js';
 
 /**
  * Game Validation Service

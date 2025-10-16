@@ -1,6 +1,6 @@
 import type { PlayerConnection, Position, Pellet, GlobalGameRoom } from 'shared';
 import { asGamePlayer, GAMEPLAY_CONSTANTS, Logger, NETWORK_CONSTANTS } from 'shared';
-import { gameSessionRecorder } from '../GameSessionRecorder';
+import { gameSessionRecorder } from '../GameSessionRecorder.js';
 
 /**
  * CollisionService - Handles all collision detection logic

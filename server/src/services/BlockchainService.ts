@@ -27,7 +27,7 @@ import {
   ClarityType
 } from '@stacks/transactions';
 import { Configuration, AccountsApi, TransactionsApi, SmartContractsApi } from '@stacks/blockchain-api-client';
-import { BLOCKCHAIN_CONSTANTS } from '../types/shared';
+import { BLOCKCHAIN_CONSTANTS } from '../types/shared.js';
 import { Logger } from 'shared';
 
 // Blockchain types

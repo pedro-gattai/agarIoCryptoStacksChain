@@ -1,8 +1,8 @@
 import { Server, Socket } from 'socket.io';
-import { GameService } from '../services/GameService';
-import { BlockchainService } from '../services/BlockchainService';
-import { StatsService } from '../services/StatsService';
-import { GameRoomManager, PlayerInput } from '../services/GameRoomManager';
+import { GameService } from '../services/GameService.js';
+import { BlockchainService } from '../services/BlockchainService.js';
+import { StatsService } from '../services/StatsService.js';
+import { GameRoomManager, PlayerInput } from '../services/GameRoomManager.js';
 
 export function setupSocketHandlers(
   io: Server, 
