@@ -545,43 +545,52 @@ export class GlobalRoomManager {
         sessionHash: session ? gameSessionRecorder.generateSessionHash(gameId) : null
       });
 
-      // Distribute prizes via blockchain (if enabled)
+      // IMPROVED: Distribute prizes via blockchain (NON-BLOCKING)
+      // Execute in background so modal appears immediately
       if (this.gameContractService && winners.length > 0) {
-        try {
-          Logger.info(`[GAME_ROUND] 💰 Distributing prizes to ${winners.length} winners via blockchain...`);
+        Logger.info(`[GAME_ROUND] 💰 Starting prize distribution in background (non-blocking)...`);
 
-          // Get winner wallet addresses
-          const winnerAddresses = winners
-            .filter(w => w.walletAddress)
-            .map(w => w.walletAddress!);
+        // Get winner wallet addresses
+        const winnerAddresses = winners
+          .filter(w => w.walletAddress)
+          .map(w => w.walletAddress!);
 
-          if (winnerAddresses.length > 0) {
-            Logger.info(`[GAME_ROUND] Winners with wallets: ${winnerAddresses.join(', ')}`);
+        if (winnerAddresses.length > 0) {
+          Logger.info(`[GAME_ROUND] Winners with wallets: ${winnerAddresses.join(', ')}`);
 
-            // Use server authority key from env
-            const authorityKey = process.env.STACKS_PRIVATE_KEY;
+          // Use server authority key from env
+          const authorityKey = process.env.STACKS_PRIVATE_KEY;
 
-            if (authorityKey && this.contractGameId !== null) {
-              const success = await this.gameContractService.endGame(
-                gameId,
-                winnerAddresses,
-                authorityKey
-              );
+          if (authorityKey && this.contractGameId !== null) {
+            // CRITICAL FIX: Execute distribution in background (non-blocking)
+            // This allows the modal to appear immediately without waiting for blockchain
+            (async () => {
+              try {
+                Logger.info('[GAME_ROUND] 🔗 Executing blockchain distribution (background)...');
 
-              if (success) {
-                Logger.info('[GAME_ROUND] ✅ Prizes distributed successfully on-chain!');
-              } else {
-                Logger.error('[GAME_ROUND] ❌ Failed to distribute prizes on-chain');
+                const success = await this.gameContractService!.endGame(
+                  gameId,
+                  winnerAddresses,
+                  authorityKey
+                );
+
+                if (success) {
+                  Logger.info('[GAME_ROUND] ✅ Prizes distributed successfully on-chain!');
+                } else {
+                  Logger.error('[GAME_ROUND] ❌ Failed to distribute prizes on-chain');
+                }
+              } catch (error) {
+                Logger.error('[GAME_ROUND] ❌ Error in background prize distribution:', error);
+                // Non-blocking - game continues regardless
               }
-            } else {
-              Logger.warn('[GAME_ROUND] Missing authority key or contract game ID');
-            }
+            })(); // Execute immediately but don't wait
+
+            Logger.info('[GAME_ROUND] ⚡ Prize distribution running in background - continuing to send modals...');
           } else {
-            Logger.warn('[GAME_ROUND] No winners have wallet addresses');
+            Logger.warn('[GAME_ROUND] Missing authority key or contract game ID');
           }
-        } catch (error) {
-          Logger.error('[GAME_ROUND] ❌ Error distributing prizes:', error);
-          // Continue anyway - don't block new round
+        } else {
+          Logger.warn('[GAME_ROUND] No winners have wallet addresses');
         }
       }
 
