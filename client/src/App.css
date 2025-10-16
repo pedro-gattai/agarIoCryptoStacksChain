@@ -6,6 +6,11 @@
   background: #2c3e50;
 }
 
+/* Whitepaper mode - clean white background */
+.app.app-whitepaper {
+  background: #ffffff;
+}
+
 /* Game mode - bloqueia scroll apenas no jogo */
 .app.app-game {
   height: 100vh;
@@ -124,6 +129,15 @@ body {
 /* Bloquear scroll do body apenas no modo jogo */
 body.game-mode {
   overflow: hidden;
+}
+
+/* Background branco para o modo whitepaper */
+body.whitepaper-mode {
+  background: #ffffff !important;
+}
+
+html:has(body.whitepaper-mode) {
+  background: #ffffff !important;
 }
 
 /* Game Controls */

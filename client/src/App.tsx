@@ -33,8 +33,8 @@ function AppContent() {
     const bodyElement = document.body;
 
     // Remover todas as classes de estado anteriores
-    appElement?.classList.remove('app-game', 'app-lobby', 'app-landing');
-    bodyElement?.classList.remove('game-mode');
+    appElement?.classList.remove('app-game', 'app-lobby', 'app-landing', 'app-whitepaper');
+    bodyElement?.classList.remove('game-mode', 'whitepaper-mode');
 
     // Adicionar classes baseadas no estado atual
     if (appState === 'game') {
@@ -44,6 +44,9 @@ function AppContent() {
       appElement?.classList.add('app-lobby');
     } else if (appState === 'landing') {
       appElement?.classList.add('app-landing');
+    } else if (appState === 'whitepaper') {
+      appElement?.classList.add('app-whitepaper');
+      bodyElement?.classList.add('whitepaper-mode');
     }
   }, [appState]);
 
