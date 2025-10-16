@@ -5,15 +5,16 @@ import type {
   Position,
   PlayerInput
 } from 'shared';
-import { GameService } from './GameService';
-import { BlockchainService } from './BlockchainService';
-import { StatsService } from './StatsService';
-import { GameContractService } from './GameContractService';
-import { RoomService } from './room/RoomService';
-import { BotService } from './bot/BotService';
-import { QueueService } from './queue/QueueService';
-import { GameLoopService } from './game/GameLoopService';
-import { gameSessionRecorder } from './GameSessionRecorder';
+import { asGamePlayer, GAMEPLAY_CONSTANTS } from 'shared';
+import { GameService } from './GameService.js';
+import { BlockchainService } from './BlockchainService.js';
+import { StatsService } from './StatsService.js';
+import { GameContractService } from './GameContractService.js';
+import { RoomService } from './room/RoomService.js';
+import { BotService } from './bot/BotService.js';
+import { QueueService } from './queue/QueueService.js';
+import { GameLoopService } from './game/GameLoopService.js';
+import { gameSessionRecorder } from './GameSessionRecorder.js';
 import { Logger } from 'shared';
 
 export class GlobalRoomManager {
@@ -452,7 +453,6 @@ export class GlobalRoomManager {
       }
 
       // Get all players and sort by score
-      const { asGamePlayer } = require('shared');
       const allPlayers = Array.from(globalRoom.players.values());
       const realPlayers = allPlayers.filter(p => !p.isBot);
 
@@ -638,8 +638,6 @@ export class GlobalRoomManager {
       const game = this.gameService.getGame(this.currentGameId!);
 
       if (game) {
-        const { GAMEPLAY_CONSTANTS, asGamePlayer } = require('shared');
-
         Logger.info(`[GAME_ROUND] Resetting game for new round (${globalRoom.players.size} players connected)...`);
 
         // Remove all split cells from the room
@@ -857,7 +855,6 @@ export class GlobalRoomManager {
       }
 
       // Use asGamePlayer to properly type the player
-      const { asGamePlayer, GAMEPLAY_CONSTANTS } = require('shared');
       const gamePlayer = asGamePlayer(player);
 
       // Reset player stats

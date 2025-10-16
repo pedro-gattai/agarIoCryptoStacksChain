@@ -4,13 +4,19 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import path from 'path';
-import { GameService } from './services/GameService';
-import { StatsService } from './services/StatsService';
-import { GameContractService } from './services/GameContractService';
-import { setupGlobalGameSocket } from './sockets/globalGameSocket';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import { GameService } from './services/GameService.js';
+import { StatsService } from './services/StatsService.js';
+import { GameContractService } from './services/GameContractService.js';
+import { setupGlobalGameSocket } from './sockets/globalGameSocket.js';
 import { Logger, LogLevel } from 'shared';
-import { gameSessionRecorder } from './services/GameSessionRecorder';
-import { gameValidationService } from './services/GameValidationService';
+import { gameSessionRecorder } from './services/GameSessionRecorder.js';
+import { gameValidationService } from './services/GameValidationService.js';
+
+// ES Module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Load environment variables from server/.env
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -58,30 +64,31 @@ const statsService = new StatsService();
 let blockchainService: any = null;
 let gameContractService: GameContractService | null = null;
 
-if (!DEMO_MODE) {
-  console.log('🔗 Initializing blockchain services...');
-  try {
-    const { BlockchainService } = require('./services/BlockchainService');
-    blockchainService = new BlockchainService();
-
-    // Create GameContractService
-    gameContractService = new GameContractService(gameService);
-    gameService.setContractService(gameContractService);
-
-    console.log('✅ Blockchain services initialized');
-  } catch (error: any) {
-    console.warn('⚠️  Blockchain service failed to load, continuing in demo mode:', error?.message || error);
-  }
-} else {
-  console.log('🎮 Running in DEMO MODE - blockchain disabled');
-}
-
 // Global cleanup function reference
 let globalCleanup: (() => void) | null = null;
 
 // Initialize server asynchronously
 (async () => {
   try {
+    // Initialize blockchain service
+    if (!DEMO_MODE) {
+      console.log('🔗 Initializing blockchain services...');
+      try {
+        const { BlockchainService } = await import('./services/BlockchainService.js');
+        blockchainService = new BlockchainService();
+
+        // Create GameContractService
+        gameContractService = new GameContractService(gameService);
+        gameService.setContractService(gameContractService);
+
+        console.log('✅ Blockchain services initialized');
+      } catch (error: any) {
+        console.warn('⚠️  Blockchain service failed to load, continuing in demo mode:', error?.message || error);
+      }
+    } else {
+      console.log('🎮 Running in DEMO MODE - blockchain disabled');
+    }
+
     // Connect services
     gameService.setStatsService(statsService);
 
