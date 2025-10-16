@@ -73,8 +73,8 @@ export const GAMEPLAY_CONSTANTS = {
 
   // Network settings
   NETWORK: {
-    TICK_RATE: 30, // Server ticks per second
-    BROADCAST_RATE: 30, // Updates per second to clients
+    TICK_RATE: 20, // Server ticks per second (reduced from 30 to reduce network traffic and lag)
+    BROADCAST_RATE: 20, // Updates per second to clients (reduced from 30 to reduce network traffic and lag)
   },
 } as const;
 

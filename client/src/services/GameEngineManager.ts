@@ -215,10 +215,49 @@ class GameEngineManager {
         if (!this.gameEngine) {
           return;
         }
-        
+
         this.gameEngine.removePlayer(data.playerId);
       } catch (error) {
         console.error('[ENGINE_MANAGER] Error removing player:', error);
+      }
+    };
+
+    // CRITICAL FIX: Handle existing players when joining a room
+    const handleExistingPlayers = (players: Array<{ playerId: string; playerPosition: any; isBot?: boolean; color?: string; name?: string }>) => {
+      if (!this.gameEngine) {
+        console.log('[ENGINE_MANAGER] No GameEngine yet, will retry existing players');
+        // Retry after a short delay
+        setTimeout(() => {
+          if (this.gameEngine) {
+            handleExistingPlayers(players);
+          }
+        }, 500);
+        return;
+      }
+
+      try {
+        const localPlayerId = socketService.getSocket()?.id;
+        console.log(`[ENGINE_MANAGER] Adding ${players.length} existing players`);
+
+        for (const player of players) {
+          // Skip local player
+          if (player.playerId === localPlayerId) {
+            continue;
+          }
+
+          const playerColor = player.color || MathUtils.randomColor();
+          const position = player.playerPosition || { x: Math.random() * 3000, y: Math.random() * 3000 };
+
+          // Double-check GameEngine is still valid
+          if (!this.gameEngine) {
+            return;
+          }
+
+          this.gameEngine.addPlayer(player.playerId, position, playerColor, false);
+          console.log(`[ENGINE_MANAGER] Added existing player: ${player.playerId.substring(0, 8)}`);
+        }
+      } catch (error) {
+        console.error('[ENGINE_MANAGER] Error adding existing players:', error);
       }
     };
 
@@ -226,11 +265,15 @@ class GameEngineManager {
     socketService.on('global_room_joined', (data: any) => {
       handleGlobalRoomJoined(data);
     });
-    
+
+    socketService.on('existing_players', (data: any) => {
+      handleExistingPlayers(data);
+    });
+
     socketService.on('player_joined', (data: any) => {
       handlePlayerJoined(data);
     });
-    
+
     socketService.on('player_left', (data: any) => {
       handlePlayerLeft(data);
     });

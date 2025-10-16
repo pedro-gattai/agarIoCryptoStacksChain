@@ -45,6 +45,25 @@ export class RoomService {
   }
 
   public addPlayerToRoom(player: PlayerConnection, socket: any): void {
+    // CRITICAL FIX: Send existing players to the NEW player BEFORE adding them
+    // This ensures the new player sees all players already in the room
+    if (socket && this.io) {
+      const existingPlayers = Array.from(this.globalRoom.players.values()).map(p => ({
+        playerId: p.playerId,
+        playerPosition: p.position,
+        isBot: p.isBot || false,
+        // Include any additional data the client needs
+        color: (p as any).color,
+        name: (p as any).name
+      }));
+
+      if (existingPlayers.length > 0) {
+        socket.emit('existing_players', existingPlayers);
+        console.log(`📤 RoomService: Sent ${existingPlayers.length} existing players to ${player.playerId.substring(0, 8)}`);
+      }
+    }
+
+    // Now add the new player to the room
     this.globalRoom.players.set(player.playerId, player);
     if (socket) {
       this.playerToSocket.set(player.playerId, socket);
@@ -60,7 +79,10 @@ export class RoomService {
         playerId: player.playerId,
         playersOnline: roomStats.realPlayers,
         playerPosition: player.position,
-        isBot: player.isBot || false
+        isBot: player.isBot || false,
+        // Include color and name for consistency
+        color: (player as any).color,
+        name: (player as any).name
       });
 
       // Only log real player joins to reduce spam

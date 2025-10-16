@@ -34,10 +34,13 @@ export class SocketService {
           autoConnect: true,
           reconnection: true,
           reconnectionDelay: 1000,
-          reconnectionAttempts: 5,
+          reconnectionAttempts: 10, // Increased from 5 for better reconnection
           withCredentials: true,
-          // Increase timeouts for Railway
+          // Increase timeouts for Railway deployment (high latency)
           timeout: 20000,
+          // Match server ping configuration to prevent premature disconnects
+          pingTimeout: 60000, // Match server (was default 20000)
+          pingInterval: 25000, // Match server (was default 25000)
         });
 
         this.socket.on('connect', () => {
@@ -215,6 +218,7 @@ export class SocketService {
       'new_room_available',
       'player_joined',
       'player_left',
+      'existing_players', // ADDED: Receive list of existing players when joining
       'game_starting',
       'game_started',
       'game_update',
