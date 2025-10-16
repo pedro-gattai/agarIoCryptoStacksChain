@@ -38,9 +38,8 @@ export class SocketService {
           withCredentials: true,
           // Increase timeouts for Railway deployment (high latency)
           timeout: 20000,
-          // Match server ping configuration to prevent premature disconnects
-          pingTimeout: 60000, // Match server (was default 20000)
-          pingInterval: 25000, // Match server (was default 25000)
+          // Note: pingTimeout and pingInterval are configured on the server
+          // and automatically negotiated during connection handshake
         });
 
         this.socket.on('connect', () => {
