@@ -9,7 +9,7 @@
 /* Navigation */
 .landing-nav {
   position: fixed;
-  top: 0;
+  top: 40px; /* Offset for testnet banner */
   left: 0;
   right: 0;
   z-index: 1000;
@@ -1486,6 +1486,10 @@
 }
 
 @media (max-width: 768px) {
+  .landing-nav {
+    top: 32px; /* Mobile banner height */
+  }
+
   .nav-container {
     padding: 0 16px;
   }

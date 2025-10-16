@@ -1,5 +1,4 @@
-import { GameState, PlayerState, Pellet, GameMode, GameStatus, GameConfig, Position, GAME_CONSTANTS, COLORS } from '../types/shared.js';
-import { DEMO_CONSTANTS } from 'shared';
+import { GameState, PlayerState, Pellet, GameMode, GameStatus, GameConfig, Position, GAME_CONSTANTS, COLORS, DEMO_CONSTANTS } from 'shared';
 import type { StatsService, GameResult } from './StatsService.js';
 import { GameContractService } from './GameContractService.js';
 
